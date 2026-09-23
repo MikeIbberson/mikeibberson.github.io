@@ -283,16 +283,17 @@ function passport() {
   // Flat cover is only a few pixels tall from the camera, so a larger
   // invisible volume catches clicks aimed at the folder.
   const hit = new THREE.Mesh(
-    new THREE.BoxGeometry(0.42, 0.28, 0.5),
+    new THREE.BoxGeometry(0.36, 0.14, 0.44),
     new THREE.MeshBasicMaterial({
       transparent: true,
       opacity: 0,
       depthWrite: false,
     })
   );
-  hit.position.y = 0.12;
+  hit.position.y = 0.07;
   hit.castShadow = false;
   hit.receiveShadow = false;
+  hit.userData.isHitProxy = true;
   g.add(hit);
   // Right side of the desk, clear of the computer and the runner
   g.position.set(1.14, 1.02, -3.16);

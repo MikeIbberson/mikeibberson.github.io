@@ -245,6 +245,75 @@ scene.add(flashlight.target);
 const flashFill = new THREE.PointLight(0xffe0a8, 0, 6.5, 2);
 scene.add(flashFill);
 
+// Soft volumetric suggestion of the beam (desktop / high-power only)
+let flashCone = null;
+if (!lowPower && !reduceMotion) {
+  flashCone = new THREE.Mesh(
+    new THREE.ConeGeometry(1.15, 5.2, 28, 1, true),
+    new THREE.MeshBasicMaterial({
+      color: 0xffe6b8,
+      transparent: true,
+      opacity: 0.028,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+    })
+  );
+  flashCone.geometry.rotateX(-Math.PI / 2);
+  flashCone.geometry.translate(0, 0, -2.6);
+  flashCone.renderOrder = 1;
+  flashCone.frustumCulled = false;
+  scene.add(flashCone);
+}
+
+// Dust motes drifting in the beam
+let dust = null;
+let dustPositions = null;
+let dustVel = null;
+if (!lowPower && !reduceMotion) {
+  const count = 160;
+  dustPositions = new Float32Array(count * 3);
+  dustVel = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    dustPositions[i * 3] = (Math.random() - 0.5) * 8;
+    dustPositions[i * 3 + 1] = 0.4 + Math.random() * 3.8;
+    dustPositions[i * 3 + 2] = (Math.random() - 0.5) * 7 - 1;
+    dustVel[i * 3] = (Math.random() - 0.5) * 0.012;
+    dustVel[i * 3 + 1] = 0.004 + Math.random() * 0.01;
+    dustVel[i * 3 + 2] = (Math.random() - 0.5) * 0.012;
+  }
+  const dustGeo = new THREE.BufferGeometry();
+  dustGeo.setAttribute("position", new THREE.BufferAttribute(dustPositions, 3));
+
+  const moteCanvas = document.createElement("canvas");
+  moteCanvas.width = 64;
+  moteCanvas.height = 64;
+  const moteCtx = moteCanvas.getContext("2d");
+  const moteGrad = moteCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  moteGrad.addColorStop(0, "rgba(255,236,200,1)");
+  moteGrad.addColorStop(0.35, "rgba(255,228,180,0.55)");
+  moteGrad.addColorStop(1, "rgba(255,220,160,0)");
+  moteCtx.fillStyle = moteGrad;
+  moteCtx.fillRect(0, 0, 64, 64);
+  const moteMap = new THREE.CanvasTexture(moteCanvas);
+
+  dust = new THREE.Points(
+    dustGeo,
+    new THREE.PointsMaterial({
+      map: moteMap,
+      color: 0xffe8c4,
+      size: 0.055,
+      transparent: true,
+      opacity: 0.0,
+      depthWrite: false,
+      sizeAttenuation: true,
+      blending: THREE.AdditiveBlending,
+    })
+  );
+  dust.frustumCulled = false;
+  scene.add(dust);
+}
+
 const { group: roomGroup, storm } = createRoom();
 scene.add(roomGroup);
 
@@ -297,15 +366,33 @@ let examining = false;
 let aboutOpen = false;
 let nearest = null;
 let typeTimer = null;
+let typeGen = 0;
+let tickerTimer = null;
+let enterBlend = 0;
 const found = new Set();
 const primaryIds = new Set(PRIMARY_ITEMS);
 const TAP_PX = 14;
 let touchDrag = null;
 /** On touch, suppress examine prompts until the user looks around or taps. */
 let touchPromptReady = !isTouch;
+let lookVelYaw = 0;
+let lookVelPitch = 0;
 
 function setTicker(text) {
-  if (ticker) ticker.textContent = text;
+  if (!ticker) return;
+  const next = text ?? "";
+  if (ticker.textContent === next) return;
+  if (reduceMotion) {
+    ticker.textContent = next;
+    return;
+  }
+  if (tickerTimer) clearTimeout(tickerTimer);
+  ticker.classList.add("is-swap");
+  tickerTimer = setTimeout(() => {
+    ticker.textContent = next;
+    ticker.classList.remove("is-swap");
+    tickerTimer = null;
+  }, 160);
 }
 function setCompass(text) {
   if (compass) compass.textContent = text;
@@ -317,14 +404,16 @@ function centerAim() {
 }
 
 function updateAim() {
-  if (!aim || isTouch) return;
-  aim.style.setProperty("--ax", `${aimClientX}px`);
-  aim.style.setProperty("--ay", `${aimClientY}px`);
+  if (!aim) return;
+  if (!isTouch) {
+    aim.style.setProperty("--ax", `${aimClientX}px`);
+    aim.style.setProperty("--ay", `${aimClientY}px`);
+  }
   aim.classList.toggle("is-lock", !!nearest && live && !examining && !aboutOpen);
 }
 
 function showAim(show) {
-  if (!aim || isTouch) return;
+  if (!aim) return;
   aim.hidden = !show;
   if (show) updateAim();
 }
@@ -332,16 +421,19 @@ function showAim(show) {
 function enterRoom() {
   if (live) return;
   live = true;
+  enterBlend = 0;
   document.body.classList.remove("is-booting");
   document.body.classList.add("is-live");
   boot?.classList.add("is-done");
-  flashlight.intensity = 8.4;
-  flashFill.intensity = 1.15;
+  flashlight.intensity = reduceMotion ? 8.4 : 0;
+  flashFill.intensity = reduceMotion ? 1.15 : 0;
   startAmbience();
   storm.play();
   if (isTouch) {
     lookYaw = 0;
     lookPitch = 0;
+    lookVelYaw = 0;
+    lookVelPitch = 0;
     touchPromptReady = false;
     applyCameraLook();
     centerAim();
@@ -350,8 +442,9 @@ function enterRoom() {
     const { w, h } = viewSize();
     updatePointer(w * 0.5, h * 0.48);
     setTicker(copy.ticker.intro.trim());
-    showAim(true);
   }
+  if (aim) aim.classList.toggle("aim--touch", isTouch);
+  showAim(true);
   setCompass(copy.hud.compassIdle);
 }
 
@@ -415,6 +508,15 @@ function aimFlashlight() {
   flashlight.target.position.copy(_smoothedTarget);
   flashlight.target.updateMatrixWorld();
 
+  if (flashCone) {
+    flashCone.position.copy(flashlight.position);
+    flashCone.lookAt(_smoothedTarget);
+    const coneOpacity = live
+      ? THREE.MathUtils.lerp(0.018, 0.042, nearest ? 1 : 0.35) * enterBlend
+      : 0;
+    flashCone.material.opacity = coneOpacity;
+  }
+
   const hits = raycaster.intersectObjects(scene.children, true);
   const solid = hits.find(isSolidHit);
 
@@ -467,8 +569,9 @@ function updateHover() {
   if (nearest && touchPromptReady) {
     nearest.traverse((obj) => {
       if (obj.isMesh && obj.material && obj.material.emissive && !obj.userData.isCrtScreen) {
+        const pulse = 0.18 + Math.sin(t * 3.2) * 0.06;
         obj.material.emissive.setHex(0x1a4a28);
-        obj.material.emissiveIntensity = 0.22;
+        obj.material.emissiveIntensity = pulse;
       }
     });
 
@@ -491,39 +594,73 @@ function updateHover() {
     prompt.style.setProperty("--py", `${sy}px`);
     setCompass(fmt(copy.hud.compassTarget, { label: String(label).toUpperCase() }));
     flashlight.angle = THREE.MathUtils.lerp(flashlight.angle, FLASH_ANGLE_LOCK, 0.2);
-    flashlight.intensity = 9.2;
+    const targetIntensity = 9.2 * (reduceMotion ? 1 : Math.max(enterBlend, 0.15));
+    flashlight.intensity = targetIntensity;
   } else {
     prompt.hidden = true;
     setCompass(copy.hud.compassIdle);
     flashlight.angle = THREE.MathUtils.lerp(flashlight.angle, FLASH_ANGLE, 0.2);
-    flashlight.intensity = live ? 8.4 : 0;
+    flashlight.intensity = live
+      ? 8.4 * (reduceMotion ? 1 : Math.max(enterBlend, 0.15))
+      : 0;
   }
   updateAim();
 }
 
 function typeText(el, text, done) {
-  el.textContent = "";
-  if (typeTimer) clearInterval(typeTimer);
-  if (reduceMotion) {
-    el.textContent = text;
+  if (!el) {
     done?.();
     return;
   }
+  if (typeTimer) {
+    clearInterval(typeTimer);
+    typeTimer = null;
+  }
+  const gen = ++typeGen;
+  const next = String(text ?? "");
+  // Paint full text immediately so the panel is never blank if animation is cancelled
+  el.textContent = next;
+  if (reduceMotion || next.length === 0) {
+    if (gen === typeGen) done?.();
+    return;
+  }
+  el.replaceChildren();
   let i = 0;
   const caret = document.createElement("span");
   caret.className = "caret";
   caret.textContent = "█";
   el.appendChild(caret);
   typeTimer = setInterval(() => {
-    if (i >= text.length) {
+    if (gen !== typeGen) {
       clearInterval(typeTimer);
+      typeTimer = null;
+      el.textContent = next;
+      return;
+    }
+    if (i >= next.length) {
+      clearInterval(typeTimer);
+      typeTimer = null;
       caret.remove();
       done?.();
       return;
     }
-    el.insertBefore(document.createTextNode(text[i]), caret);
+    el.insertBefore(document.createTextNode(next[i]), caret);
     i += 1;
   }, 14);
+}
+
+function setExamineLink(href, linkText) {
+  if (!examineLink) return;
+  const url = href != null ? String(href).trim() : "";
+  if (url && url !== "null" && url !== "undefined" && url !== "#") {
+    examineLink.hidden = false;
+    examineLink.setAttribute("href", url);
+    examineLink.textContent = linkText ? String(linkText) : "Open file";
+  } else {
+    examineLink.hidden = true;
+    examineLink.removeAttribute("href");
+    examineLink.textContent = "";
+  }
 }
 
 function openExamine(root) {
@@ -531,34 +668,40 @@ function openExamine(root) {
   const data = ITEMS[id];
   if (!data) return;
 
+  if (typeTimer) {
+    clearInterval(typeTimer);
+    typeTimer = null;
+  }
+
   examining = true;
   document.body.classList.add("is-examining");
   prompt.hidden = true;
   showAim(false);
   examine.hidden = false;
 
-  examineTitle.textContent = data.title;
-  examinePreview.resize();
-  examinePreview.show(root);
-  examinePreview.start();
+  const title = asText(data.title) || String(id);
+  const body = asText(data.body).trim();
+  examineTitle.textContent = title;
+  setExamineLink(data.href, data.linkText);
 
-  if (data.href) {
-    examineLink.hidden = false;
-    examineLink.href = data.href;
-    examineLink.textContent = data.linkText;
-  } else {
-    examineLink.hidden = true;
-  }
-
-  found.add(id);
-  setTicker(data.found);
-  setCompass(fmt(copy.hud.compassExamining, { title: data.title.toUpperCase() }));
-
-  typeText(examineBody, data.body.trim(), () => {
+  // Body before preview — preview errors must not skip the copy
+  typeText(examineBody, body, () => {
     if ([...primaryIds].every((pid) => found.has(pid))) {
       setTicker(copy.ticker.primaryComplete.trim());
     }
   });
+
+  try {
+    examinePreview.resize();
+    examinePreview.show(root);
+    examinePreview.start();
+  } catch (err) {
+    console.warn("Examine preview failed", err);
+  }
+
+  found.add(id);
+  setTicker(data.found);
+  setCompass(fmt(copy.hud.compassExamining, { title: title.toUpperCase() }));
 
   examine.querySelector(".examine__close")?.focus();
 }
@@ -569,10 +712,17 @@ function closeExamine() {
   document.body.classList.remove("is-examining");
   examine.hidden = true;
   examinePreview.stop();
-  if (typeTimer) clearInterval(typeTimer);
+  if (typeTimer) {
+    clearInterval(typeTimer);
+    typeTimer = null;
+  }
+  typeGen += 1;
+  if (examineBody) examineBody.replaceChildren();
+  setExamineLink(null);
+  if (examineTitle) examineTitle.textContent = "";
   setCompass(copy.hud.compassIdle);
   if (isTouch) centerAim();
-  else showAim(true);
+  showAim(true);
   if (found.size === 0) {
     setTicker((isTouch ? copy.ticker.introTouch || copy.ticker.idle : copy.ticker.idle).trim());
   } else if (found.size < propRoots.length) {
@@ -611,7 +761,7 @@ function closeAbout() {
   menuToggle?.setAttribute("aria-expanded", "false");
   menuToggle?.setAttribute("aria-label", copy.hud.menuOpen);
   if (isTouch && live) centerAim();
-  else if (live) showAim(true);
+  showAim(!!live);
   menuToggle?.focus();
 }
 
@@ -670,6 +820,8 @@ if (isTouch) {
         LOOK_PITCH_MIN - BASE_PITCH,
         LOOK_PITCH_MAX - BASE_PITCH
       );
+      lookVelYaw = -dx * LOOK_SENS * 0.12;
+      lookVelPitch = -dy * LOOK_SENS * 0.12;
       applyCameraLook();
       centerAim();
     }
@@ -764,12 +916,13 @@ window.visualViewport?.addEventListener("resize", handleResize);
 let t = 0;
 let stormFlash = 0;
 const _stormColor = new THREE.Color();
+const CAM_BREATHE = 0.012;
 
 function updateStormLight() {
   const { hot } = storm.sampleStorm();
   const strike = THREE.MathUtils.clamp(hot / 0.012, 0, 1);
   stormFlash = strike > stormFlash ? strike : THREE.MathUtils.lerp(stormFlash, strike, 0.14);
-  const target = 0.38 + stormFlash * 18;
+  const target = (0.38 + stormFlash * 18) * (0.35 + enterBlend * 0.65);
   windowGlow.intensity = THREE.MathUtils.lerp(windowGlow.intensity, target, 0.7);
   _stormColor.setRGB(
     THREE.MathUtils.lerp(0.42, 0.92, stormFlash),
@@ -779,15 +932,74 @@ function updateStormLight() {
   windowGlow.color.lerp(_stormColor, 0.55);
 }
 
+function updateDust(dt) {
+  if (!dust || !dustPositions || !live) return;
+  const targetOpacity = 0.28 * enterBlend;
+  dust.material.opacity = THREE.MathUtils.lerp(dust.material.opacity, targetOpacity, 0.08);
+  const aim = _aimDir;
+  for (let i = 0; i < dustPositions.length / 3; i++) {
+    const ix = i * 3;
+    dustPositions[ix] += dustVel[ix] + Math.sin(t * 0.7 + i) * 0.0008;
+    dustPositions[ix + 1] += dustVel[ix + 1] * dt * 60;
+    dustPositions[ix + 2] += dustVel[ix + 2];
+
+    // Softly bias toward the beam corridor
+    dustPositions[ix] += aim.x * 0.002;
+    dustPositions[ix + 2] += aim.z * 0.002;
+
+    if (dustPositions[ix + 1] > 4.6) {
+      dustPositions[ix] = camera.position.x + (Math.random() - 0.5) * 5;
+      dustPositions[ix + 1] = 0.25 + Math.random() * 0.6;
+      dustPositions[ix + 2] = camera.position.z + (Math.random() - 0.5) * 4 - 1.5;
+    }
+  }
+  dust.geometry.attributes.position.needsUpdate = true;
+}
+
 function animate() {
   requestAnimationFrame(animate);
-  t += 0.016;
+  const dt = 0.016;
+  t += dt;
+
+  if (live && enterBlend < 1) {
+    enterBlend = reduceMotion ? 1 : Math.min(1, enterBlend + dt * 0.55);
+    flashFill.intensity = 1.15 * enterBlend;
+    if (examining || aboutOpen) {
+      flashlight.intensity = 8.4 * enterBlend;
+    }
+  }
+
+  // Touch look inertia
+  if (isTouch && live && !examining && !aboutOpen && !touchDrag && !reduceMotion) {
+    if (Math.abs(lookVelYaw) > 0.00005 || Math.abs(lookVelPitch) > 0.00005) {
+      lookYaw = THREE.MathUtils.clamp(lookYaw + lookVelYaw, -LOOK_YAW_MAX, LOOK_YAW_MAX);
+      lookPitch = THREE.MathUtils.clamp(
+        lookPitch + lookVelPitch,
+        LOOK_PITCH_MIN - BASE_PITCH,
+        LOOK_PITCH_MAX - BASE_PITCH
+      );
+      lookVelYaw *= 0.92;
+      lookVelPitch *= 0.92;
+      applyCameraLook();
+      centerAim();
+    }
+  }
+
+  // Subtle idle breathe on desktop
+  if (!isTouch && live && !examining && !aboutOpen && !reduceMotion) {
+    const breathe = Math.sin(t * 0.55) * CAM_BREATHE;
+    camera.position.y = CAM_HOME.y + breathe;
+    camera.position.x = CAM_HOME.x + Math.sin(t * 0.27) * CAM_BREATHE * 0.45;
+  } else if (!isTouch) {
+    camera.position.copy(CAM_HOME);
+  }
 
   if (!reduceMotion) {
     if (lowPower) {
       if ((t * 60 | 0) % 2 === 0) updateStormLight();
     } else {
       updateStormLight();
+      updateDust(dt);
     }
   }
 
@@ -795,7 +1007,7 @@ function animate() {
     aimFlashlight();
     updateHover();
     // subtle flicker
-    if (!reduceMotion) {
+    if (!reduceMotion && enterBlend > 0.85) {
       const jitter = lowPower ? 0.04 : 0.08;
       flashlight.intensity += (Math.random() - 0.5) * jitter;
       flashlight.intensity = THREE.MathUtils.clamp(

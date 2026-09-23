@@ -7,6 +7,7 @@ import * as THREE from "three";
  */
 export function createExaminePreview(canvas, opts = {}) {
   const lowPower = !!opts.lowPower;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: !lowPower,
@@ -16,23 +17,30 @@ export function createExaminePreview(canvas, opts = {}) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, lowPower ? 1.25 : 2));
   renderer.setSize(canvas.clientWidth || 260, canvas.clientHeight || 260, false);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 50);
   camera.position.set(0, 0.4, 3.2);
 
-  const hemi = new THREE.HemisphereLight(0xb0c4de, 0x22180e, 0.7);
+  const hemi = new THREE.HemisphereLight(0xb0c4de, 0x22180e, 0.78);
   scene.add(hemi);
-  const key = new THREE.DirectionalLight(0xffe6c0, 1.2);
-  key.position.set(2, 3, 4);
+  const key = new THREE.DirectionalLight(0xffe6c0, 1.35);
+  key.position.set(2.2, 3.2, 4.2);
   scene.add(key);
-  const fill = new THREE.PointLight(0x5cff8a, 0.35, 10);
-  fill.position.set(-2, 1, 2);
+  const fill = new THREE.PointLight(0x5cff8a, 0.42, 12);
+  fill.position.set(-2.2, 1.1, 2.4);
   scene.add(fill);
+  const rim = new THREE.DirectionalLight(0x6a90b8, 0.35);
+  rim.position.set(-3, 1.5, -2);
+  scene.add(rim);
 
   let current = null;
   let raf = 0;
   let active = false;
+  let spin = 0;
+  let intro = 0;
 
   function fitCamera(object) {
     const box = new THREE.Box3().setFromObject(object);
@@ -40,7 +48,7 @@ export function createExaminePreview(canvas, opts = {}) {
     const center = box.getCenter(new THREE.Vector3());
     object.position.sub(center);
     const maxDim = Math.max(size.x, size.y, size.z, 0.5);
-    camera.position.set(maxDim * 1.8, maxDim * 0.55, maxDim * 2.4);
+    camera.position.set(maxDim * 1.75, maxDim * 0.52, maxDim * 2.35);
     camera.near = maxDim / 100;
     camera.far = maxDim * 20;
     camera.lookAt(0, 0, 0);
@@ -56,13 +64,31 @@ export function createExaminePreview(canvas, opts = {}) {
       current = null;
     }
     current = sourceGroup.clone(true);
+    // Drop invisible click proxies so they don't inflate the framing
+    const drop = [];
+    current.traverse((o) => {
+      if (o.userData?.isHitProxy) drop.push(o);
+    });
+    drop.forEach((o) => o.parent?.remove(o));
+
     current.traverse((o) => {
       if (o.isMesh && o.material) {
-        o.material = o.material.clone();
-        o.material.emissive = new THREE.Color(0x000000);
-        o.material.emissiveIntensity = 0;
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        o.material = Array.isArray(o.material)
+          ? mats.map((m) => m.clone())
+          : mats[0].clone();
+        const cloned = Array.isArray(o.material) ? o.material : [o.material];
+        cloned.forEach((m) => {
+          if ("emissive" in m) {
+            m.emissive = new THREE.Color(0x000000);
+            m.emissiveIntensity = 0;
+          }
+        });
       }
     });
+    spin = 0.35;
+    intro = 0;
+    current.scale.setScalar(0.92);
     scene.add(current);
     fitCamera(current);
   }
@@ -72,7 +98,18 @@ export function createExaminePreview(canvas, opts = {}) {
     active = true;
     const loop = () => {
       if (!active) return;
-      if (current) current.rotation.y += lowPower ? 0.008 : 0.012;
+      if (current) {
+        if (!reduceMotion) {
+          intro = Math.min(1, intro + 0.045);
+          const s = THREE.MathUtils.lerp(0.92, 1, intro);
+          current.scale.setScalar(s);
+          spin += lowPower ? 0.007 : 0.011;
+          current.rotation.y = spin;
+          current.rotation.x = Math.sin(spin * 0.65) * 0.04;
+        } else {
+          current.scale.setScalar(1);
+        }
+      }
       renderer.render(scene, camera);
       raf = requestAnimationFrame(loop);
     };

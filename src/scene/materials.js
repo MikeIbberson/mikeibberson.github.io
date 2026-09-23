@@ -38,28 +38,98 @@ export function makePlankTexture() {
   c.width = 512;
   c.height = 512;
   const ctx = c.getContext("2d");
-  ctx.fillStyle = "#3a2a1c";
+  ctx.fillStyle = "#2e2218";
   ctx.fillRect(0, 0, 512, 512);
+
   for (let y = 0; y < 512; y += 64) {
-    const shade = 40 + Math.random() * 25;
-    ctx.fillStyle = `rgb(${shade + 30},${shade + 15},${shade})`;
+    const base = 38 + Math.random() * 22;
+    const warm = base + 28 + Math.random() * 10;
+    const mid = base + 14 + Math.random() * 8;
+    const cool = base + Math.random() * 6;
+    const grad = ctx.createLinearGradient(0, y, 512, y + 60);
+    grad.addColorStop(0, `rgb(${warm},${mid},${cool})`);
+    grad.addColorStop(0.45, `rgb(${warm + 8},${mid + 4},${cool + 2})`);
+    grad.addColorStop(1, `rgb(${warm - 6},${mid - 4},${cool - 2})`);
+    ctx.fillStyle = grad;
     ctx.fillRect(0, y, 512, 60);
-    ctx.strokeStyle = "rgba(0,0,0,0.35)";
+
+    // Fine grain along the plank
+    for (let i = 0; i < 90; i++) {
+      const gx = Math.random() * 512;
+      const gy = y + 4 + Math.random() * 52;
+      ctx.strokeStyle = `rgba(${20 + Math.random() * 30},${12 + Math.random() * 18},8,${0.04 + Math.random() * 0.08})`;
+      ctx.beginPath();
+      ctx.moveTo(gx, gy);
+      ctx.quadraticCurveTo(gx + 40, gy + (Math.random() - 0.5) * 4, gx + 80 + Math.random() * 40, gy);
+      ctx.stroke();
+    }
+
+    // Knots
+    if (Math.random() > 0.55) {
+      const kx = 40 + Math.random() * 430;
+      const ky = y + 18 + Math.random() * 28;
+      const kr = 3 + Math.random() * 5;
+      const knot = ctx.createRadialGradient(kx, ky, 0, kx, ky, kr);
+      knot.addColorStop(0, "rgba(55, 36, 22, 0.55)");
+      knot.addColorStop(1, "rgba(55, 36, 22, 0)");
+      ctx.fillStyle = knot;
+      ctx.beginPath();
+      ctx.arc(kx, ky, kr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.strokeStyle = "rgba(0,0,0,0.42)";
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(0, y + 62);
     ctx.lineTo(512, y + 62);
     ctx.stroke();
+
     for (let x = 0; x < 512; x += 128) {
+      const seamX = x + (y % 128 === 0 ? 0 : 64);
+      ctx.strokeStyle = "rgba(0,0,0,0.28)";
       ctx.beginPath();
-      ctx.moveTo(x + (y % 128 === 0 ? 0 : 64), y);
-      ctx.lineTo(x + (y % 128 === 0 ? 0 : 64), y + 62);
+      ctx.moveTo(seamX, y);
+      ctx.lineTo(seamX, y + 62);
       ctx.stroke();
     }
   }
+
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(2, 2);
+  tex.repeat.set(2.4, 2.2);
+  tex.anisotropy = 8;
   tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/** Soft height variation for plank bump / roughness maps. */
+export function makePlankBumpTexture() {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 256;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#808080";
+  ctx.fillRect(0, 0, 256, 256);
+  for (let y = 0; y < 256; y += 32) {
+    const shade = 110 + Math.random() * 35;
+    ctx.fillStyle = `rgb(${shade},${shade},${shade})`;
+    ctx.fillRect(0, y, 256, 28);
+    ctx.fillStyle = "rgba(40,40,40,0.35)";
+    ctx.fillRect(0, y + 29, 256, 2);
+    for (let x = 0; x < 256; x += 64) {
+      const seamX = x + (y % 64 === 0 ? 0 : 32);
+      ctx.fillRect(seamX, y, 1, 28);
+    }
+  }
+  for (let i = 0; i < 400; i++) {
+    const g = 90 + Math.random() * 70;
+    ctx.fillStyle = `rgba(${g},${g},${g},0.15)`;
+    ctx.fillRect(Math.random() * 256, Math.random() * 256, 2, 1);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(2.4, 2.2);
   return tex;
 }
 
@@ -68,23 +138,57 @@ export function makeWallpaperTexture() {
   c.width = 256;
   c.height = 256;
   const ctx = c.getContext("2d");
-  ctx.fillStyle = "#4a3b2e";
+  const base = ctx.createLinearGradient(0, 0, 0, 256);
+  base.addColorStop(0, "#4f3f31");
+  base.addColorStop(1, "#433528");
+  ctx.fillStyle = base;
   ctx.fillRect(0, 0, 256, 256);
-  ctx.strokeStyle = "rgba(0,0,0,0.18)";
-  ctx.lineWidth = 2;
+
+  // Soft vertical stripe pattern
   for (let x = 0; x < 256; x += 48) {
+    ctx.fillStyle = "rgba(255,230,190,0.035)";
+    ctx.fillRect(x + 8, 0, 14, 256);
+    ctx.strokeStyle = "rgba(0,0,0,0.16)";
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, 256);
     ctx.stroke();
   }
-  for (let i = 0; i < 80; i++) {
-    ctx.fillStyle = `rgba(0,0,0,${Math.random() * 0.08})`;
-    ctx.fillRect(Math.random() * 256, Math.random() * 256, 3, 3);
+
+  // Damask-ish diamonds
+  ctx.strokeStyle = "rgba(0,0,0,0.1)";
+  ctx.lineWidth = 1;
+  for (let y = 16; y < 256; y += 48) {
+    for (let x = 24; x < 256; x += 48) {
+      ctx.beginPath();
+      ctx.moveTo(x, y - 10);
+      ctx.lineTo(x + 10, y);
+      ctx.lineTo(x, y + 10);
+      ctx.lineTo(x - 10, y);
+      ctx.closePath();
+      ctx.stroke();
+    }
   }
+
+  for (let i = 0; i < 120; i++) {
+    ctx.fillStyle = `rgba(0,0,0,${Math.random() * 0.09})`;
+    ctx.fillRect(Math.random() * 256, Math.random() * 256, 2 + Math.random() * 3, 2);
+  }
+
+  // Water stain near bottom
+  const stain = ctx.createRadialGradient(180, 230, 4, 180, 230, 50);
+  stain.addColorStop(0, "rgba(30, 22, 14, 0.22)");
+  stain.addColorStop(1, "rgba(30, 22, 14, 0)");
+  ctx.fillStyle = stain;
+  ctx.beginPath();
+  ctx.arc(180, 230, 50, 0, Math.PI * 2);
+  ctx.fill();
+
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(4, 3);
+  tex.repeat.set(4.2, 3.1);
+  tex.anisotropy = 4;
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }

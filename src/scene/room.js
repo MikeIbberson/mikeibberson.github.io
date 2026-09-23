@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { makePlankTexture, makeWallpaperTexture, woodMaterial, paintMaterial } from "./materials.js";
+import { makePlankTexture, makePlankBumpTexture, makeWallpaperTexture, woodMaterial, paintMaterial } from "./materials.js";
 import { publicUrl } from "../publicUrl.js";
 
 export function createRoom() {
@@ -7,14 +7,17 @@ export function createRoom() {
   group.name = "room";
 
   const floorTex = makePlankTexture();
+  const floorBump = makePlankBumpTexture();
   const wallTex = makeWallpaperTexture();
 
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(12, 10),
     new THREE.MeshStandardMaterial({
       map: floorTex,
-      roughness: 0.9,
-      metalness: 0.02,
+      bumpMap: floorBump,
+      bumpScale: 0.035,
+      roughness: 0.88,
+      metalness: 0.03,
     })
   );
   floor.rotation.x = -Math.PI / 2;
@@ -24,7 +27,7 @@ export function createRoom() {
 
   const wallMat = new THREE.MeshStandardMaterial({
     map: wallTex,
-    roughness: 0.95,
+    roughness: 0.96,
     metalness: 0.0,
   });
 
@@ -63,6 +66,17 @@ export function createRoom() {
   const backBase = new THREE.Mesh(new THREE.BoxGeometry(12, 0.25, 0.08), baseMat);
   backBase.position.set(0, 0.12, -4.96);
   group.add(backBase);
+
+  // Crown molding strip
+  const crownMat = woodMaterial(0x241810, 0.75);
+  const crownBack = new THREE.Mesh(new THREE.BoxGeometry(12, 0.12, 0.08), crownMat);
+  crownBack.position.set(0, 5.38, -4.96);
+  group.add(crownBack);
+  [-5.96, 5.96].forEach((x) => {
+    const crown = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 10), crownMat);
+    crown.position.set(x, 5.38, 0);
+    group.add(crown);
+  });
 
   // Window niche — open frame so the storm plays through the glass
   const frameMat = woodMaterial(0x2a1e16, 0.7);
@@ -112,6 +126,16 @@ export function createRoom() {
   const mullionH = new THREE.Mesh(new THREE.BoxGeometry(paneW, 0.06, 0.08), frameMat);
   mullionH.position.z = 0.08;
   windowGroup.add(mullionH);
+
+  // Soft sill under the window
+  const sill = new THREE.Mesh(
+    new THREE.BoxGeometry(frameW + 0.12, 0.06, 0.22),
+    woodMaterial(0x322418, 0.72)
+  );
+  sill.position.set(0, -(paneH / 2 + borderY + 0.04), 0.08);
+  sill.castShadow = true;
+  sill.receiveShadow = true;
+  windowGroup.add(sill);
 
   group.add(windowGroup);
 
