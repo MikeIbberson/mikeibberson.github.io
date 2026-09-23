@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" fill="none" aria-hidden="true">
+  <!-- Outer M legs (double line) -->
+  <path d="M14 58 V14 H20 V46 L36 22 L52 46 V14 H58 V58 H52 V30 L36 54 L20 30 V58 Z" stroke="#5cff8a" stroke-width="2" stroke-linejoin="miter"/>
+  <!-- Inner crest / tip -->
+  <path d="M28 34 L36 22 L44 34 L36 52 Z" stroke="#5cff8a" stroke-width="2" stroke-linejoin="miter"/>
+  <!-- Amber survey tick -->
+  <path d="M30 44 H42" stroke="#d4b56a" stroke-width="2" stroke-linecap="square"/>
+  <path d="M36 38 V50" stroke="#5cff8a" stroke-width="2" stroke-linecap="square"/>
+</svg>

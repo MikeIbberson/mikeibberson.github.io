@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <title>Mike Ibberson</title>
+    <link rel="icon" href="%BASE_URL%mike-ibberson-wordmark.jpg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IM+Fell+English:ital@0;1&family=Special+Elite&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div class="noise" aria-hidden="true"></div>
+
+    <div class="boot" id="boot">
+      <div class="boot__panel">
+        <p class="boot__sys" data-content="boot.system"></p>
+        <div id="boot-lines"></div>
+        <p class="boot__prompt" id="boot-prompt" role="button" tabindex="0" data-content="boot.prompt"></p>
+      </div>
+    </div>
+
+    <header class="hud">
+      <div class="hud__left">
+        <button
+          class="hud__menu"
+          id="menu-toggle"
+          type="button"
+          aria-label="Open about"
+          aria-controls="about"
+          aria-expanded="false"
+        >
+          <span class="hud__menu-bar" aria-hidden="true"></span>
+          <span class="hud__menu-bar" aria-hidden="true"></span>
+          <span class="hud__menu-bar" aria-hidden="true"></span>
+        </button>
+        <div class="hud__identity">
+          <a class="brand" href="#about" id="brand-link">
+            <span class="brand__name" data-content="site.name"></span>
+          </a>
+          <p class="hud__role">
+            <span data-content="site.role"></span>
+            <a
+              class="hud__company"
+              id="hud-company"
+              href="#"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-content="site.company.name"
+            ></a>
+          </p>
+        </div>
+      </div>
+      <div class="hud__center" id="hud-compass" data-content="hud.compassIdle"></div>
+      <div class="hud__right">
+        <span class="hud__loc" data-content="site.location"></span>
+        <span class="hud__dot hud__dot--blink" aria-hidden="true"></span>
+      </div>
+    </header>
+
+    <section class="about" id="about" hidden>
+      <div class="about__veil" data-about-close></div>
+      <div
+        class="about__sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="about-title"
+      >
+        <button class="about__close" type="button" data-about-close aria-label="Close about" data-content="about.close"></button>
+        <h1 class="about__title" id="about-title" data-content="site.name"></h1>
+        <p class="about__role" id="about-role"></p>
+        <p class="about__body" data-content="about.body"></p>
+        <nav class="about__socials" id="about-socials" aria-label="Social links">
+          <a class="about__social" data-social="linkedin" href="#" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5C4.98 4.88 3.86 6 2.5 6S0 4.88 0 3.5 1.12 1 2.5 1s2.48 1.12 2.48 2.5zM.5 8.5h4V23h-4V8.5zM8.5 8.5h3.84v1.98h.05c.53-1.01 1.84-2.08 3.79-2.08 4.05 0 4.8 2.67 4.8 6.14V23h-4v-6.6c0-1.57-.03-3.59-2.19-3.59-2.19 0-2.53 1.71-2.53 3.48V23h-4V8.5z"/></svg>
+            <span></span>
+          </a>
+          <a class="about__social" data-social="medium" href="#" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M2.85 5.65a.53.53 0 0 0-.17-.44L.4 2.74V2.3h6.62l5.11 11.2L16.6 2.3H23v.44l-1.9 1.82a.4.4 0 0 0-.15.38v13.1c0 .1.04.2.15.27l1.85 2.25v.44H13.6v-.44l1.92-2.34c.19-.19.19-.24.19-.52V7.4l-5.34 13.55h-.72L3.4 7.4v9.1c-.05.36.07.73.33 1L6.4 20.8v.44H0v-.44l2.67-3.3c.26-.27.38-.64.33-1V5.65z"/></svg>
+            <span></span>
+          </a>
+          <a class="about__social" data-social="strava" href="#" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.599h4.172L10.463 0 2 16.944h4.172"/></svg>
+            <span></span>
+          </a>
+          <a class="about__social" data-social="spotify" href="#" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+            <span></span>
+          </a>
+          <a class="about__social" data-social="email" href="#" aria-label="Email">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5L4 8V6l8 5 8-5v2z"/></svg>
+            <span></span>
+          </a>
+        </nav>
+        <footer class="about__credits" id="about-credits" hidden>
+          <h2 class="about__credits-title" data-content="about.credits.title"></h2>
+          <p class="about__credits-intro" data-content="about.credits.intro"></p>
+          <ul class="about__credits-list" id="about-credits-list"></ul>
+        </footer>
+      </div>
+    </section>
+
+    <canvas id="scene"></canvas>
+
+    <div class="reticle" id="reticle" hidden aria-hidden="true">
+      <span class="reticle__ring"></span>
+      <span class="reticle__dot"></span>
+    </div>
+
+    <div class="prompt" id="prompt" hidden>
+      <span class="prompt__key">▮</span>
+      <span id="prompt-text">Examine</span>
+    </div>
+
+    <nav class="targets" id="targets" hidden></nav>
+
+    <section class="examine" id="examine" hidden>
+      <div class="examine__veil" data-close></div>
+      <div
+        class="examine__panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="examine-title"
+      >
+        <div class="examine__frame">
+          <canvas id="examine-canvas" width="360" height="360"></canvas>
+        </div>
+        <div class="examine__copy">
+          <p class="examine__item" id="examine-title">Item</p>
+          <p class="examine__body" id="examine-body"></p>
+          <div class="examine__actions">
+            <a
+              class="examine__link"
+              id="examine-link"
+              href="#"
+              target="_blank"
+              rel="noopener noreferrer"
+              hidden
+            ></a>
+            <button class="examine__close" type="button" data-close data-content="examine.back"></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="ticker">
+      <p id="ticker" data-content="ticker.intro"></p>
+    </footer>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

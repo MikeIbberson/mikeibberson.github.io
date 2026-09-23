@@ -1,0 +1,200 @@
+# Site copy & links — edit here instead of hunting through source files.
+
+meta:
+  title: Mike Ibberson
+
+site:
+  name: Mike Ibberson
+  location: Toronto, ON
+  role: Senior AI Architect
+  company:
+    name: Textlayer
+    href: https://www.textlayer.ai/
+
+boot:
+  system: SYSTEM BIOHAZARD ARCHIVE
+  lines:
+    - Checking memory…
+    - Mounting 3D scene…
+    - "Subject: M. Ibberson"
+    - Ready.
+  prompt: Click to enter
+  promptTouch: Tap to enter
+
+hud:
+  compassIdle: SEARCH THE ROOM
+  compassTarget: "TARGET // {label}"
+  compassExamining: "EXAMINING // {title}"
+  brandAriaLabel: Mike Ibberson — About
+  menuOpen: Open about
+  menuClose: Close about
+  targetsAriaLabel: Objects in the room
+  dragHint: Drag to aim · tap to examine
+
+ticker:
+  intro: >
+    A cold room. Dust hangs in the air. Something here knows who you are
+    looking for.
+  introTouch: >
+    Drag to sweep the light. Tap an object — or use the strip below —
+    to open its file.
+  idle: A cold room. Dust hangs in the air.
+  primaryComplete: >
+    Career files located. Computer, bookshelf, and calendar are the short path.
+  progress: "{count} object{plural} examined. Keep searching."
+  complete: >
+    Every object logged. The file on M. Ibberson is as complete as this room allows.
+
+prompt:
+  examine: "Examine {label}"
+  examineTouch: "Tap · {label}"
+
+examine:
+  back: Back
+
+about:
+  close: Close
+  socialsAriaLabel: Social links
+  body: >
+    I design and ship AI systems that hold up in the real world — from
+    architecture and evaluation to the last mile of product polish. Based
+    in Toronto, I work at Textlayer building tools that make language
+    models useful, trustworthy, and a little less mysterious. This room is
+    my dossier: wander if you want the long version, or skip straight to
+    the files below.
+  socials:
+    - id: linkedin
+      label: LinkedIn
+      href: https://linkedin.com/in/example-mike
+    - id: medium
+      label: Medium
+      href: https://medium.com/@example-mike
+    - id: strava
+      label: Strava
+      href: https://strava.com/athletes/example
+    - id: spotify
+      label: Spotify
+      href: https://open.spotify.com/artist/example
+    - id: email
+      label: Email
+      href: mailto:hello@example.com
+  credits:
+    title: Credits
+    intro: Models and assets used in this room.
+    # Add one entry per source. `for` = what it was used for; `label` = credit line; `href` = link.
+    entries:
+      - for: Coffee mug
+        label: Plaggy — CC0 mug
+        href: https://example.com/replace-with-mug-source
+      # - for: Guitar
+      #   label: Artist / site name
+      #   href: https://…
+
+# Drawn onto the in-scene calendar texture (month/day always use today)
+calendarTexture:
+  cta: GET IN TOUCH →
+
+# Interactable objects (ids must match scene prop ids)
+# label = hover prompt name; title = examine panel heading
+items:
+  computer:
+    label: Computer
+    title: Old computer
+    body: >
+      A CRT still warm to the touch. The desktop is a mess of specs, shipped work,
+      and half-written outreach. Across the history: European teams, American teams,
+      Canadian teams. The subject builds where the work is.
+    linkText: Open LinkedIn file
+    href: https://linkedin.com/in/example-mike
+    found: You examined the computer. The fan ticks like a clock.
+
+  bookshelf:
+    label: Bookshelf
+    title: Bookshelf
+    body: >
+      Crowded spines. Dog-eared pages. Notes tucked between chapters like evidence.
+      This is where ideas get pressure-tested before they leave the room — thought
+      leadership with fingerprints on it.
+    linkText: Open Medium file
+    href: https://medium.com/@example-mike
+    found: You examined the bookshelf. Dust motes spin in the beam.
+
+  runner:
+    label: Running statue
+    title: Running statue
+    body: >
+      A small figure frozen mid-stride on the desk. Mud miles and early mornings live
+      in that pose — Pickering routes logged until the pattern looks like devotion.
+    linkText: Open Strava file
+    href: https://strava.com/athletes/example
+    found: You examined the running statue. It still looks like it might move.
+
+  guitar:
+    label: Guitar
+    title: Acoustic guitar
+    body: >
+      Lacquer worn at the strum path. A folded setlist under the strings. This is not
+      decoration — the subject is a musician, and the room still holds the shape of
+      unfinished songs.
+    linkText: Open Spotify file
+    href: https://open.spotify.com/artist/example
+    found: You examined the guitar. One string hums when you breathe.
+
+  dog:
+    label: Robot dog
+    title: Steampunk robot dog
+    body: >
+      Brass joints. A faint tick of gears. Someone in this room keeps company that
+      never needs a leash — loyal circuitry with a personality file all its own.
+    linkText: null
+    href: null
+    found: You examined the robot dog. Its head tracks the flashlight.
+
+  mug:
+    label: Coffee mug
+    title: Coffee mug
+    body: >
+      A ring of dried espresso on the rim. Refilled more times than the room has
+      windows. Whatever else is true about the subject, the coffee is non-negotiable.
+    linkText: null
+    href: null
+    found: You examined the mug. Still warm, somehow.
+
+  calendar:
+    label: Calendar
+    title: Wall calendar
+    body: >
+      Today is circled in red. In the margin, in block letters: GET IN TOUCH. The room
+      is a dossier, but it is also an invitation — if you are hiring, this is the knock
+      on the door.
+    linkText: Send a message
+    href: mailto:hello@example.com
+    found: You examined the calendar. A date is waiting.
+
+  photo:
+    label: Photograph
+    title: Framed photograph
+    body: >
+      Subject: Mike Ibberson. Last known residence: Pickering, Ontario — near Toronto.
+      The eyes in the frame are the same ones that built this room. A garden behind him.
+      A file in front of you.
+    linkText: null
+    href: null
+    found: You examined the photograph. The eyes hold the beam.
+
+  passport:
+    label: Travel folder
+    title: Travel folder
+    body: >
+      Stamps and boarding stubs pressed flat. EU. US. CA. The paperwork confirms what
+      the computer already suggested — this career has crossed borders without losing
+      its center of gravity in Pickering.
+    linkText: null
+    href: null
+    found: You examined the travel folder. The stamps overlap like a map.
+
+# Object ids that unlock the "short path" ticker message when all are found
+primaryItems:
+  - computer
+  - bookshelf
+  - calendar
