@@ -326,119 +326,6 @@ body.is-booting .hud__center {
   animation: blink 1s steps(1) infinite;
 }
 
-.reticle {
-  position: fixed;
-  left: var(--rx, 50%);
-  top: var(--ry, 50%);
-  z-index: 34;
-  width: 28px;
-  height: 28px;
-  translate: -50% -50%;
-  pointer-events: none;
-}
-
-.reticle[hidden] {
-  display: none;
-}
-
-.reticle__ring {
-  position: absolute;
-  inset: 0;
-  border: 1px solid rgba(92, 255, 138, 0.55);
-  border-radius: 50%;
-  box-shadow: 0 0 12px rgba(92, 255, 138, 0.18);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s var(--ease);
-}
-
-.reticle__dot {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 4px;
-  height: 4px;
-  translate: -50% -50%;
-  border-radius: 50%;
-  background: var(--amber);
-  box-shadow: 0 0 8px rgba(212, 181, 106, 0.55);
-}
-
-.reticle.is-lock .reticle__ring {
-  border-color: var(--green);
-  box-shadow: 0 0 16px rgba(92, 255, 138, 0.35);
-  transform: scale(1.12);
-}
-
-.reticle.is-lock .reticle__dot {
-  background: var(--green);
-}
-
-.targets {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: calc(3.6rem + var(--safe-bottom));
-  z-index: 42;
-  display: flex;
-  gap: 0.45rem;
-  padding: 0 calc(0.75rem + var(--safe-right)) 0 calc(0.75rem + var(--safe-left));
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-  pointer-events: none;
-}
-
-.targets::-webkit-scrollbar {
-  display: none;
-}
-
-.targets[hidden] {
-  display: none;
-}
-
-body.is-live.is-touch .targets {
-  pointer-events: auto;
-}
-
-body.is-examining .targets,
-body.is-about .targets,
-body.is-booting .targets {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.targets__btn {
-  flex: 0 0 auto;
-  font: inherit;
-  font-size: 0.62rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  padding: 0.65rem 0.85rem;
-  min-height: 44px;
-  border: 1px solid var(--green-dim);
-  background: rgba(5, 12, 7, 0.88);
-  color: var(--paper);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  white-space: nowrap;
-}
-
-.targets__btn.is-active {
-  border-color: var(--green);
-  color: var(--green);
-}
-
-.targets__btn.is-found {
-  color: var(--mute);
-  border-color: rgba(31, 143, 69, 0.55);
-}
-
-.targets__btn:focus-visible {
-  outline: none;
-  border-color: var(--green);
-  background: rgba(92, 255, 138, 0.08);
-}
-
 .examine {
   position: fixed;
   inset: 0;
@@ -720,10 +607,6 @@ body.is-booting .targets {
 
 body.is-live .ticker {
   opacity: 1;
-}
-
-body.is-live.is-touch .ticker {
-  padding-bottom: calc(5.4rem + var(--safe-bottom));
 }
 
 .ticker p {

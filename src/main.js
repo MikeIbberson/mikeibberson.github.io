@@ -128,8 +128,6 @@ const compass = document.getElementById("hud-compass");
 const about = document.getElementById("about");
 const menuToggle = document.getElementById("menu-toggle");
 const brandLink = document.getElementById("brand-link");
-const reticle = document.getElementById("reticle");
-const targets = document.getElementById("targets");
 
 const copy = content;
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -187,8 +185,32 @@ scene.background = new THREE.Color(0x050403);
 scene.fog = new THREE.FogExp2(0x050403, 0.032);
 
 const camera = new THREE.PerspectiveCamera(baseFov(), initW / initH, 0.1, 100);
-camera.position.set(0.4, 2.1, 5.8);
-camera.lookAt(0.2, 1.6, -2);
+const CAM_HOME = new THREE.Vector3(0.4, 2.1, 5.8);
+const LOOK_HOME = new THREE.Vector3(0.2, 1.6, -2);
+const _lookDir = new THREE.Vector3().subVectors(LOOK_HOME, CAM_HOME).normalize();
+const BASE_YAW = Math.atan2(_lookDir.x, -_lookDir.z);
+const BASE_PITCH = Math.asin(THREE.MathUtils.clamp(_lookDir.y, -1, 1));
+const LOOK_YAW_MAX = 0.72;
+const LOOK_PITCH_MIN = -0.32;
+const LOOK_PITCH_MAX = 0.48;
+const LOOK_SENS = 0.0038;
+let lookYaw = 0;
+let lookPitch = 0;
+const _lookTarget = new THREE.Vector3();
+
+function applyCameraLook() {
+  const yaw = BASE_YAW + lookYaw;
+  const pitch = THREE.MathUtils.clamp(BASE_PITCH + lookPitch, LOOK_PITCH_MIN, LOOK_PITCH_MAX);
+  _lookDir.set(
+    Math.sin(yaw) * Math.cos(pitch),
+    Math.sin(pitch),
+    -Math.cos(yaw) * Math.cos(pitch)
+  );
+  camera.position.copy(CAM_HOME);
+  camera.lookAt(_lookTarget.copy(CAM_HOME).add(_lookDir));
+}
+
+applyCameraLook();
 
 // Ambient moonlight — very dim so flashlight matters
 const moon = new THREE.DirectionalLight(0x8aa0b8, 0.18);
@@ -265,7 +287,6 @@ const _aimDir = new THREE.Vector3();
 const _aimTarget = new THREE.Vector3();
 const _fillPos = new THREE.Vector3();
 const _smoothedTarget = new THREE.Vector3();
-const _focusCenter = new THREE.Vector3();
 let aimReady = false;
 let aimClientX = initW * 0.5;
 let aimClientY = initH * 0.45;
@@ -287,56 +308,9 @@ function setCompass(text) {
   if (compass) compass.textContent = text;
 }
 
-function updateReticle() {
-  if (!reticle || !isTouch) return;
-  reticle.style.setProperty("--rx", `${aimClientX}px`);
-  reticle.style.setProperty("--ry", `${aimClientY}px`);
-  reticle.classList.toggle("is-lock", !!nearest && live && !examining);
-}
-
-function buildTargets() {
-  if (!targets || !isTouch) return;
-  targets.setAttribute("aria-label", copy.hud.targetsAriaLabel || "Objects in the room");
-  targets.replaceChildren(
-    ...propRoots.map((root) => {
-      const id = root.userData.id;
-      const data = ITEMS[id];
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "targets__btn";
-      btn.dataset.targetId = id;
-      btn.textContent = data?.label || root.userData.label || id;
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (!live || examining || aboutOpen) return;
-        focusProp(root);
-      });
-      return btn;
-    })
-  );
-}
-
-function syncTargetMarks() {
-  if (!targets) return;
-  targets.querySelectorAll("[data-target-id]").forEach((btn) => {
-    btn.classList.toggle("is-found", found.has(btn.dataset.targetId));
-    btn.classList.toggle("is-active", nearest?.userData?.id === btn.dataset.targetId);
-  });
-}
-
-function focusProp(root) {
-  const box = new THREE.Box3().setFromObject(root);
-  box.getCenter(_focusCenter);
-  _focusCenter.project(camera);
-  if (_focusCenter.z < 1) {
-    const { w, h } = viewSize();
-    const sx = THREE.MathUtils.clamp((_focusCenter.x * 0.5 + 0.5) * w, w * 0.08, w * 0.92);
-    const sy = THREE.MathUtils.clamp((-_focusCenter.y * 0.5 + 0.5) * h, h * 0.12, h * 0.82);
-    updatePointer(sx, sy);
-    aimFlashlight();
-    updateHover();
-  }
-  openExamine(root);
+function centerAim() {
+  const { w, h } = viewSize();
+  updatePointer(w * 0.5, h * 0.48);
 }
 
 function enterRoom() {
@@ -349,18 +323,18 @@ function enterRoom() {
   flashFill.intensity = 1.15;
   startAmbience();
   storm.play();
-  const { w, h } = viewSize();
-  updatePointer(w * 0.5, h * 0.48);
   if (isTouch) {
-    reticle?.removeAttribute("hidden");
-    targets?.removeAttribute("hidden");
+    lookYaw = 0;
+    lookPitch = 0;
+    applyCameraLook();
+    centerAim();
     setTicker((copy.ticker.introTouch || copy.ticker.intro).trim());
   } else {
+    const { w, h } = viewSize();
+    updatePointer(w * 0.5, h * 0.48);
     setTicker(copy.ticker.intro.trim());
   }
   setCompass(copy.hud.compassIdle);
-  updateReticle();
-  syncTargetMarks();
 }
 
 boot?.addEventListener("click", () => {
@@ -384,11 +358,10 @@ function updatePointer(clientX, clientY) {
   aimClientY = clientY;
   pointer.x = (clientX / w) * 2 - 1;
   pointer.y = -(clientY / h) * 2 + 1;
-  updateReticle();
 }
 
 function isUiTarget(el) {
-  return !!el?.closest?.(".boot, .examine, .about, .hud, .targets");
+  return !!el?.closest?.(".boot, .examine, .about, .hud");
 }
 
 function isSolidHit(hit) {
@@ -506,8 +479,6 @@ function updateHover() {
     flashlight.angle = THREE.MathUtils.lerp(flashlight.angle, FLASH_ANGLE, 0.2);
     flashlight.intensity = live ? 8.4 : 0;
   }
-  updateReticle();
-  syncTargetMarks();
 }
 
 function typeText(el, text, done) {
@@ -561,8 +532,6 @@ function openExamine(root) {
   found.add(id);
   setTicker(data.found);
   setCompass(fmt(copy.hud.compassExamining, { title: data.title.toUpperCase() }));
-  syncTargetMarks();
-  if (reticle) reticle.hidden = true;
 
   typeText(examineBody, data.body.trim(), () => {
     if ([...primaryIds].every((pid) => found.has(pid))) {
@@ -581,9 +550,7 @@ function closeExamine() {
   examinePreview.stop();
   if (typeTimer) clearInterval(typeTimer);
   setCompass(copy.hud.compassIdle);
-  if (isTouch && reticle) reticle.hidden = false;
-  updateReticle();
-  syncTargetMarks();
+  if (isTouch) centerAim();
   if (found.size === 0) {
     setTicker((isTouch ? copy.ticker.introTouch || copy.ticker.idle : copy.ticker.idle).trim());
   } else if (found.size < propRoots.length) {
@@ -611,7 +578,6 @@ function openAbout(e) {
   menuToggle?.setAttribute("aria-expanded", "true");
   menuToggle?.setAttribute("aria-label", copy.hud.menuClose);
   if (prompt) prompt.hidden = true;
-  if (reticle) reticle.hidden = true;
   about?.querySelector(".about__close")?.focus();
 }
 
@@ -621,8 +587,7 @@ function closeAbout() {
   about?.setAttribute("hidden", "");
   menuToggle?.setAttribute("aria-expanded", "false");
   menuToggle?.setAttribute("aria-label", copy.hud.menuOpen);
-  if (isTouch && live && reticle) reticle.hidden = false;
-  updateReticle();
+  if (isTouch && live) centerAim();
   menuToggle?.focus();
 }
 
@@ -641,11 +606,8 @@ about?.querySelectorAll("[data-about-close]").forEach((el) => {
   el.addEventListener("click", closeAbout);
 });
 
-buildTargets();
-
 if (isTouch) {
-  const { w, h } = viewSize();
-  updatePointer(w * 0.5, h * 0.45);
+  centerAim();
 
   window.addEventListener("pointerdown", (e) => {
     if (!live || examining || aboutOpen || isUiTarget(e.target)) return;
@@ -653,9 +615,10 @@ if (isTouch) {
       id: e.pointerId,
       x: e.clientX,
       y: e.clientY,
+      startYaw: lookYaw,
+      startPitch: lookPitch,
       moved: false,
     };
-    updatePointer(e.clientX, e.clientY);
     try {
       canvas.setPointerCapture?.(e.pointerId);
     } catch {
@@ -666,15 +629,32 @@ if (isTouch) {
   window.addEventListener("pointermove", (e) => {
     if (!touchDrag || e.pointerId !== touchDrag.id) return;
     if (examining || aboutOpen) return;
-    if (Math.hypot(e.clientX - touchDrag.x, e.clientY - touchDrag.y) > TAP_PX) {
+    const dx = e.clientX - touchDrag.x;
+    const dy = e.clientY - touchDrag.y;
+    if (Math.hypot(dx, dy) > TAP_PX) {
       touchDrag.moved = true;
     }
-    updatePointer(e.clientX, e.clientY);
+    if (touchDrag.moved) {
+      lookYaw = THREE.MathUtils.clamp(
+        touchDrag.startYaw - dx * LOOK_SENS,
+        -LOOK_YAW_MAX,
+        LOOK_YAW_MAX
+      );
+      lookPitch = THREE.MathUtils.clamp(
+        touchDrag.startPitch - dy * LOOK_SENS,
+        LOOK_PITCH_MIN - BASE_PITCH,
+        LOOK_PITCH_MAX - BASE_PITCH
+      );
+      applyCameraLook();
+      centerAim();
+    }
   });
 
   function endTouchDrag(e) {
     if (!touchDrag || e.pointerId !== touchDrag.id) return;
     const wasTap = !touchDrag.moved;
+    const tapX = e.clientX;
+    const tapY = e.clientY;
     touchDrag = null;
     try {
       canvas.releasePointerCapture?.(e.pointerId);
@@ -682,10 +662,17 @@ if (isTouch) {
       /* ignore */
     }
     if (!live || examining || aboutOpen) return;
-    updatePointer(e.clientX, e.clientY);
-    aimFlashlight();
-    updateHover();
-    if (wasTap && nearest) openExamine(nearest);
+    if (wasTap) {
+      updatePointer(tapX, tapY);
+      aimFlashlight();
+      updateHover();
+      if (nearest) openExamine(nearest);
+      centerAim();
+    } else {
+      centerAim();
+      aimFlashlight();
+      updateHover();
+    }
   }
 
   window.addEventListener("pointerup", endTouchDrag);
@@ -741,7 +728,7 @@ function handleResize() {
   renderer.setSize(w, h);
   examinePreview.resize();
   if (isTouch && live && !examining && !aboutOpen) {
-    updatePointer(aimClientX, aimClientY);
+    centerAim();
   }
 }
 

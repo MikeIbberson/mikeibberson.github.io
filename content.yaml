@@ -28,16 +28,14 @@ hud:
   brandAriaLabel: Mike Ibberson — About
   menuOpen: Open about
   menuClose: Close about
-  targetsAriaLabel: Objects in the room
-  dragHint: Drag to aim · tap to examine
+  dragHint: Drag to look · tap to examine
 
 ticker:
   intro: >
     A cold room. Dust hangs in the air. Something here knows who you are
     looking for.
   introTouch: >
-    Drag to sweep the light. Tap an object — or use the strip below —
-    to open its file.
+    Drag to look around the room. Tap an object to open its file.
   idle: A cold room. Dust hangs in the air.
   primaryComplete: >
     Computer, bookshelf, and the Textlayer frame are the short path.
