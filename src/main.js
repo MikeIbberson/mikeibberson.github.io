@@ -278,9 +278,9 @@ if (!lowPower && !reduceMotion) {
     dustPositions[i * 3] = (Math.random() - 0.5) * 8;
     dustPositions[i * 3 + 1] = 0.4 + Math.random() * 3.8;
     dustPositions[i * 3 + 2] = (Math.random() - 0.5) * 7 - 1;
-    dustVel[i * 3] = (Math.random() - 0.5) * 0.012;
-    dustVel[i * 3 + 1] = 0.004 + Math.random() * 0.01;
-    dustVel[i * 3 + 2] = (Math.random() - 0.5) * 0.012;
+    dustVel[i * 3] = (Math.random() - 0.5) * 0.006;
+    dustVel[i * 3 + 1] = 0.002 + Math.random() * 0.005;
+    dustVel[i * 3 + 2] = (Math.random() - 0.5) * 0.006;
   }
   const dustGeo = new THREE.BufferGeometry();
   dustGeo.setAttribute("position", new THREE.BufferAttribute(dustPositions, 3));
@@ -939,13 +939,13 @@ function updateDust(dt) {
   const aim = _aimDir;
   for (let i = 0; i < dustPositions.length / 3; i++) {
     const ix = i * 3;
-    dustPositions[ix] += dustVel[ix] + Math.sin(t * 0.7 + i) * 0.0008;
+    dustPositions[ix] += dustVel[ix] + Math.sin(t * 0.35 + i) * 0.0004;
     dustPositions[ix + 1] += dustVel[ix + 1] * dt * 60;
     dustPositions[ix + 2] += dustVel[ix + 2];
 
     // Softly bias toward the beam corridor
-    dustPositions[ix] += aim.x * 0.002;
-    dustPositions[ix + 2] += aim.z * 0.002;
+    dustPositions[ix] += aim.x * 0.001;
+    dustPositions[ix + 2] += aim.z * 0.001;
 
     if (dustPositions[ix + 1] > 4.6) {
       dustPositions[ix] = camera.position.x + (Math.random() - 0.5) * 5;

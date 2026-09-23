@@ -183,6 +183,7 @@ function createStormPane(paneW, paneH) {
   video.playsInline = true;
   video.autoplay = !reduceMotion;
   video.preload = "auto";
+  video.playbackRate = 0.65;
   video.setAttribute("playsinline", "");
   video.setAttribute("aria-hidden", "true");
   video.tabIndex = -1;
