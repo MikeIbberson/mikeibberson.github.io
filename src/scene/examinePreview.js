@@ -6,15 +6,15 @@ import * as THREE from "three";
  * @param {{ lowPower?: boolean }} [opts]
  */
 export function createExaminePreview(canvas, opts = {}) {
-  const lowPower = !!opts.lowPower;
+  const isLowPower = !!opts.lowPower;
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const renderer = new THREE.WebGLRenderer({
     canvas,
-    antialias: !lowPower,
+    antialias: !isLowPower,
     alpha: true,
-    powerPreference: lowPower ? "low-power" : "default",
+    powerPreference: isLowPower ? "low-power" : "default",
   });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, lowPower ? 1.25 : 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, isLowPower ? 1.25 : 2));
   renderer.setSize(canvas.clientWidth || 260, canvas.clientHeight || 260, false);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -38,7 +38,7 @@ export function createExaminePreview(canvas, opts = {}) {
 
   let current = null;
   let raf = 0;
-  let active = false;
+  let isActive = false;
   let spin = 0;
   let intro = 0;
 
@@ -69,21 +69,25 @@ export function createExaminePreview(canvas, opts = {}) {
     current.traverse((o) => {
       if (o.userData?.isHitProxy) drop.push(o);
     });
-    drop.forEach((o) => o.parent?.remove(o));
+    for (const o of drop) o.parent?.remove(o);
 
     current.traverse((o) => {
-      if (o.isMesh && o.material) {
-        const mats = Array.isArray(o.material) ? o.material : [o.material];
-        o.material = Array.isArray(o.material)
-          ? mats.map((m) => m.clone())
-          : mats[0].clone();
-        const cloned = Array.isArray(o.material) ? o.material : [o.material];
-        cloned.forEach((m) => {
-          if ("emissive" in m) {
-            m.emissive = new THREE.Color(0x000000);
-            m.emissiveIntensity = 0;
-          }
-        });
+      if (!(o.isMesh && o.material)) {
+        return;
+      }
+
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      o.material = Array.isArray(o.material)
+        ? mats.map((m) => m.clone())
+        : mats[0].clone();
+      const cloned = Array.isArray(o.material) ? o.material : [o.material];
+      for (const m of cloned) {
+        if (!("emissive" in m)) {
+          continue;
+        }
+
+        m.emissive = new THREE.Color(0x000000);
+        m.emissiveIntensity = 0;
       }
     });
     spin = 0.35;
@@ -94,20 +98,20 @@ export function createExaminePreview(canvas, opts = {}) {
   }
 
   function start() {
-    if (active) return;
-    active = true;
+    if (isActive) return;
+    isActive = true;
     const loop = () => {
-      if (!active) return;
+      if (!isActive) return;
       if (current) {
-        if (!reduceMotion) {
+        if (reduceMotion) {
+          current.scale.setScalar(1);
+        } else {
           intro = Math.min(1, intro + 0.045);
           const s = THREE.MathUtils.lerp(0.92, 1, intro);
           current.scale.setScalar(s);
-          spin += lowPower ? 0.007 : 0.011;
+          spin += isLowPower ? 0.007 : 0.011;
           current.rotation.y = spin;
           current.rotation.x = Math.sin(spin * 0.65) * 0.04;
-        } else {
-          current.scale.setScalar(1);
         }
       }
       renderer.render(scene, camera);
@@ -117,7 +121,7 @@ export function createExaminePreview(canvas, opts = {}) {
   }
 
   function stop() {
-    active = false;
+    isActive = false;
     cancelAnimationFrame(raf);
   }
 

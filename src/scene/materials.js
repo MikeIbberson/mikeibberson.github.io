@@ -103,7 +103,9 @@ export function makePlankTexture() {
   return tex;
 }
 
-/** Soft height variation for plank bump / roughness maps. */
+/**
+Soft height variation for plank bump / roughness maps.
+*/
 export function makePlankBumpTexture() {
   const c = document.createElement("canvas");
   c.width = 256;
@@ -193,7 +195,9 @@ export function makeWallpaperTexture() {
   return tex;
 }
 
-/** Cover-crop + faded silver-gelatin grade so the portrait sits in the dark room. */
+/**
+Cover-crop + faded silver-gelatin grade so the portrait sits in the dark room.
+*/
 function vintagePortraitTexture(image, targetAspect) {
   const srcW = image.width || 1;
   const srcH = image.height || 1;
@@ -230,7 +234,7 @@ function vintagePortraitTexture(image, targetAspect) {
     let y = (y0 - 128) * 0.82 + 118;
     y = Math.max(0, Math.min(255, y));
     const px = (i / 4) % w;
-    const py = (i / 4 / w) | 0;
+    const py = Math.trunc(i / 4 / w);
     const vig = Math.min(1, Math.hypot(px - cx, py - cy) / maxR);
     const v = 1 - vig * vig * 0.48;
     d[i] = Math.max(0, Math.min(255, (y * 1.02 + 16) * v));

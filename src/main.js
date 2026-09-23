@@ -21,25 +21,30 @@ function asText(value) {
 }
 
 function pathGet(obj, path) {
-  return path.split(".").reduce((acc, key) => (acc == null ? acc : acc[key]), obj);
+  let acc = obj;
+  for (const key of path.split(".")) {
+    if (acc == null) return acc;
+    acc = acc[key];
+  }
+  return acc;
 }
 
 function applyContent() {
   const c = content;
   if (c.meta?.title) document.title = c.meta.title;
 
-  document.querySelectorAll("[data-content]").forEach((el) => {
-    const value = pathGet(c, el.getAttribute("data-content"));
-    if (value == null) return;
+  for (const el of document.querySelectorAll("[data-content]")) {
+    const value = pathGet(c, el.dataset.content);
+    if (value == null) continue;
     el.textContent = asText(value);
-  });
+  }
 
-  const bootLinesHost = document.getElementById("boot-lines");
+  const bootLinesHost = document.querySelector("#boot-lines");
   if (bootLinesHost && Array.isArray(c.boot?.lines)) {
     bootLinesHost.replaceChildren(
       ...c.boot.lines.map((line, i, arr) => {
         const p = document.createElement("p");
-        p.className = "boot__line" + (i === arr.length - 1 ? " boot__line--ok" : "");
+        p.className = `boot__line${  i === arr.length - 1 ? " boot__line--ok" : ""}`;
         p.dataset.boot = "";
         p.textContent = asText(line);
         return p;
@@ -47,34 +52,34 @@ function applyContent() {
     );
   }
 
-  const brandLinkEl = document.getElementById("brand-link");
+  const brandLinkEl = document.querySelector("#brand-link");
   if (brandLinkEl && c.hud?.brandAriaLabel) {
     brandLinkEl.setAttribute("aria-label", c.hud.brandAriaLabel);
   }
 
-  const menuToggleEl = document.getElementById("menu-toggle");
+  const menuToggleEl = document.querySelector("#menu-toggle");
   if (menuToggleEl && c.hud?.menuOpen) {
     menuToggleEl.setAttribute("aria-label", c.hud.menuOpen);
   }
 
-  const hudCompany = document.getElementById("hud-company");
+  const hudCompany = document.querySelector("#hud-company");
   if (hudCompany && c.site?.company?.href) {
     hudCompany.href = c.site.company.href;
   }
 
-  const aboutRole = document.getElementById("about-role");
+  const aboutRole = document.querySelector("#about-role");
   if (aboutRole && c.site) {
-    aboutRole.replaceChildren();
-    aboutRole.append(document.createTextNode(`${c.site.role} `));
+    const nodes = [document.createTextNode(`${c.site.role} `)];
     if (c.site.company) {
       const a = document.createElement("a");
       a.href = c.site.company.href;
       a.target = "_blank";
       a.rel = "noopener noreferrer";
       a.textContent = c.site.company.name;
-      aboutRole.append(a);
+      nodes.push(a);
     }
-    aboutRole.append(document.createTextNode(` · ${c.site.location}`));
+    nodes.push(document.createTextNode(` · ${c.site.location}`));
+    aboutRole.replaceChildren(...nodes);
   }
 
   const aboutClose = document.querySelector(".about__close");
@@ -82,7 +87,7 @@ function applyContent() {
     aboutClose.setAttribute("aria-label", c.about.close);
   }
 
-  const socialsNav = document.getElementById("about-socials");
+  const socialsNav = document.querySelector("#about-socials");
   if (socialsNav && c.about?.socialsAriaLabel) {
     socialsNav.setAttribute("aria-label", c.about.socialsAriaLabel);
   }
@@ -90,11 +95,11 @@ function applyContent() {
   const socialById = Object.fromEntries(
     (c.about?.socials ?? []).map((s) => [s.id, s])
   );
-  document.querySelectorAll("[data-social]").forEach((el) => {
-    const social = socialById[el.getAttribute("data-social")];
+  for (const el of document.querySelectorAll("[data-social]")) {
+    const social = socialById[el.dataset.social];
     if (!social) {
       el.hidden = true;
-      return;
+      continue;
     }
     el.hidden = false;
     el.href = social.href;
@@ -108,34 +113,34 @@ function applyContent() {
       el.target = "_blank";
       el.rel = "noopener noreferrer";
     }
-  });
+  }
 }
 
 applyContent();
 
-const canvas = document.getElementById("scene");
-const boot = document.getElementById("boot");
-const bootPrompt = document.getElementById("boot-prompt");
-const prompt = document.getElementById("prompt");
-const promptText = document.getElementById("prompt-text");
-const examine = document.getElementById("examine");
-const examineTitle = document.getElementById("examine-title");
-const examineBody = document.getElementById("examine-body");
-const examineLink = document.getElementById("examine-link");
-const examineCanvas = document.getElementById("examine-canvas");
-const ticker = document.getElementById("ticker");
-const compass = document.getElementById("hud-compass");
-const about = document.getElementById("about");
-const menuToggle = document.getElementById("menu-toggle");
-const brandLink = document.getElementById("brand-link");
-const aim = document.getElementById("aim");
+const canvas = document.querySelector("#scene");
+const boot = document.querySelector("#boot");
+const bootPrompt = document.querySelector("#boot-prompt");
+const prompt = document.querySelector("#prompt");
+const promptText = document.querySelector("#prompt-text");
+const examine = document.querySelector("#examine");
+const examineTitle = document.querySelector("#examine-title");
+const examineBody = document.querySelector("#examine-body");
+const examineLink = document.querySelector("#examine-link");
+const examineCanvas = document.querySelector("#examine-canvas");
+const ticker = document.querySelector("#ticker");
+const compass = document.querySelector("#hud-compass");
+const about = document.querySelector("#about");
+const menuToggle = document.querySelector("#menu-toggle");
+const brandLink = document.querySelector("#brand-link");
+const aim = document.querySelector("#aim");
 
 const copy = content;
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const isTouch = window.matchMedia("(hover: none), (pointer: coarse)").matches;
-const lowMemory =
+const isLowMemory =
   typeof navigator.deviceMemory === "number" && navigator.deviceMemory > 0 && navigator.deviceMemory <= 4;
-const lowPower = isTouch || lowMemory;
+const lowPower = isTouch || isLowMemory;
 if (isTouch) document.body.classList.add("is-touch");
 if (lowPower) document.body.classList.add("is-low-power");
 
@@ -143,15 +148,15 @@ document.body.classList.add("is-booting");
 
 // Boot lines
 const bootLines = [...document.querySelectorAll("[data-boot]")];
-bootLines.forEach((line, i) => {
+for (const [i, line] of bootLines.entries()) {
   setTimeout(() => line.classList.add("is-shown"), reduceMotion ? 0 : 250 + i * 380);
-});
+}
 setTimeout(
   () => bootPrompt?.classList.add("is-shown"),
   reduceMotion ? 0 : 250 + bootLines.length * 380 + 200
 );
 
-if (isTouch && copy.boot?.promptTouch && bootPrompt) {
+if (bootPrompt && isTouch && copy.boot?.promptTouch) {
   bootPrompt.textContent = copy.boot.promptTouch;
 }
 
@@ -229,7 +234,7 @@ scene.add(windowGlow);
 // so the hotspot stays under the pointer on distant / grazing walls.
 const FLASH_DIST = 28;
 const FLASH_ANGLE = Math.PI / 5.8;
-const FLASH_ANGLE_LOCK = Math.PI / 5.0;
+const FLASH_ANGLE_LOCK = Math.PI / 5;
 const flashlight = new THREE.SpotLight(0xffe6b8, 0, FLASH_DIST, FLASH_ANGLE, 0.72, 1.15);
 flashlight.castShadow = true;
 flashlight.shadow.mapSize.set(lowPower ? 512 : 1024, lowPower ? 512 : 1024);
@@ -304,7 +309,7 @@ if (!lowPower && !reduceMotion) {
       color: 0xffe8c4,
       size: 0.055,
       transparent: true,
-      opacity: 0.0,
+      opacity: 0,
       depthWrite: false,
       sizeAttenuation: true,
       blending: THREE.AdditiveBlending,
@@ -319,13 +324,15 @@ scene.add(roomGroup);
 
 const props = await createProps();
 const propRoots = [];
-props.forEach((p) => {
+for (const p of props) {
   scene.add(p);
   propRoots.push(p);
-});
+}
 
 const decor = await createDecor();
-decor.forEach((d) => scene.add(d));
+for (const d of decor) {
+  scene.add(d);
+}
 
 const examinePreview = createExaminePreview(examineCanvas, { lowPower });
 
@@ -334,18 +341,21 @@ ambience.loop = true;
 ambience.preload = "auto";
 ambience.volume = 0.34;
 ambience.setAttribute("aria-hidden", "true");
-document.body.appendChild(ambience);
+document.body.append(ambience);
 
-function startAmbience() {
-  const play = ambience.play();
-  if (play?.catch) play.catch(() => {});
+async function startAmbience() {
+  try {
+    await ambience.play();
+  } catch {
+    /* autoplay blocked until user gesture */
+  }
 }
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     ambience.pause();
     storm.pause();
-  } else if (live) {
+  } else if (isLive) {
     startAmbience();
     storm.play();
   }
@@ -357,13 +367,13 @@ const _aimDir = new THREE.Vector3();
 const _aimTarget = new THREE.Vector3();
 const _fillPos = new THREE.Vector3();
 const _smoothedTarget = new THREE.Vector3();
-let aimReady = false;
+let isAimReady = false;
 let aimClientX = initW * 0.5;
 let aimClientY = initH * 0.45;
 
-let live = false;
-let examining = false;
-let aboutOpen = false;
+let isLive = false;
+let isExamining = false;
+let isAboutOpen = false;
 let nearest = null;
 let typeTimer = null;
 let typeGen = 0;
@@ -374,22 +384,20 @@ const primaryIds = new Set(PRIMARY_ITEMS);
 const TAP_PX = 14;
 let touchDrag = null;
 /** On touch, suppress examine prompts until the user looks around or taps. */
-let touchPromptReady = !isTouch;
+let isTouchPromptReady = !isTouch;
 let lookVelYaw = 0;
 let lookVelPitch = 0;
 
-function setTicker(text) {
-  if (!ticker) return;
-  const next = text ?? "";
-  if (ticker.textContent === next) return;
+function setTicker(text = "") {
+  if (!ticker || ticker.textContent === text) return;
   if (reduceMotion) {
-    ticker.textContent = next;
+    ticker.textContent = text;
     return;
   }
   if (tickerTimer) clearTimeout(tickerTimer);
   ticker.classList.add("is-swap");
   tickerTimer = setTimeout(() => {
-    ticker.textContent = next;
+    ticker.textContent = text;
     ticker.classList.remove("is-swap");
     tickerTimer = null;
   }, 160);
@@ -409,7 +417,7 @@ function updateAim() {
     aim.style.setProperty("--ax", `${aimClientX}px`);
     aim.style.setProperty("--ay", `${aimClientY}px`);
   }
-  aim.classList.toggle("is-lock", !!nearest && live && !examining && !aboutOpen);
+  aim.classList.toggle("is-lock", !!nearest && isLive && !isExamining && !isAboutOpen);
 }
 
 function showAim(show) {
@@ -419,8 +427,8 @@ function showAim(show) {
 }
 
 function enterRoom() {
-  if (live) return;
-  live = true;
+  if (isLive) return;
+  isLive = true;
   enterBlend = 0;
   document.body.classList.remove("is-booting");
   document.body.classList.add("is-live");
@@ -434,7 +442,7 @@ function enterRoom() {
     lookPitch = 0;
     lookVelYaw = 0;
     lookVelPitch = 0;
-    touchPromptReady = false;
+    isTouchPromptReady = false;
     applyCameraLook();
     centerAim();
     setTicker((copy.ticker.introTouch || copy.ticker.intro).trim());
@@ -449,18 +457,20 @@ function enterRoom() {
 }
 
 boot?.addEventListener("click", () => {
-  if (!aboutOpen) enterRoom();
+  if (!isAboutOpen) enterRoom();
 });
 bootPrompt?.addEventListener("click", (e) => {
   e.stopPropagation();
-  if (!aboutOpen) enterRoom();
+  if (!isAboutOpen) enterRoom();
 });
 bootPrompt?.addEventListener("keydown", (e) => {
-  if (aboutOpen) return;
-  if (e.key === "Enter" || e.key === " ") {
-    e.preventDefault();
-    enterRoom();
+  if (isAboutOpen) return;
+  if (!(e.key === "Enter" || e.key === " ")) {
+    return;
   }
+
+  e.preventDefault();
+  enterRoom();
 });
 
 function updatePointer(clientX, clientY) {
@@ -498,11 +508,11 @@ function aimFlashlight() {
   // the hotspot slide (especially on the back wall, where fill sat in-plane).
   _aimTarget.copy(camera.position).addScaledVector(_aimDir, 12);
 
-  if (!aimReady) {
-    _smoothedTarget.copy(_aimTarget);
-    aimReady = true;
-  } else {
+  if (isAimReady) {
     _smoothedTarget.lerp(_aimTarget, reduceMotion ? 1 : 0.62);
+  } else {
+    _smoothedTarget.copy(_aimTarget);
+    isAimReady = true;
   }
 
   flashlight.target.position.copy(_smoothedTarget);
@@ -511,14 +521,14 @@ function aimFlashlight() {
   if (flashCone) {
     flashCone.position.copy(flashlight.position);
     flashCone.lookAt(_smoothedTarget);
-    const coneOpacity = live
+    const coneOpacity = isLive
       ? THREE.MathUtils.lerp(0.018, 0.042, nearest ? 1 : 0.35) * enterBlend
       : 0;
     flashCone.material.opacity = coneOpacity;
   }
 
   const hits = raycaster.intersectObjects(scene.children, true);
-  const solid = hits.find(isSolidHit);
+  const solid = hits.find((hit) => isSolidHit(hit));
 
   if (solid) {
     // Sit the fill in front of the surface, toward the camera — not +Y,
@@ -547,7 +557,7 @@ function findPropRoot(obj) {
 }
 
 function updateHover() {
-  if (!live || examining) return;
+  if (!isLive || isExamining) return;
 
   raycaster.setFromCamera(pointer, camera);
   const hits = raycaster.intersectObjects(propRoots, true);
@@ -555,24 +565,28 @@ function updateHover() {
   const root = hit ? findPropRoot(hit.object) : null;
 
   // Clear emissive highlights
-  propRoots.forEach((p) => {
+  for (const p of propRoots) {
     p.traverse((obj) => {
-      if (obj.isMesh && obj.material && obj.material.emissive && !obj.userData.isCrtScreen) {
-        obj.material.emissive.setHex(0x000000);
-        obj.material.emissiveIntensity = 0;
+      if (!(obj.isMesh && obj.material && obj.material.emissive) || obj.userData.isCrtScreen) {
+        return;
       }
+
+      obj.material.emissive.setHex(0x000000);
+      obj.material.emissiveIntensity = 0;
     });
-  });
+  }
 
   nearest = root && hit && hit.distance < 14 ? root : null;
 
-  if (nearest && touchPromptReady) {
+  if (nearest && isTouchPromptReady) {
     nearest.traverse((obj) => {
-      if (obj.isMesh && obj.material && obj.material.emissive && !obj.userData.isCrtScreen) {
-        const pulse = 0.18 + Math.sin(t * 3.2) * 0.06;
-        obj.material.emissive.setHex(0x1a4a28);
-        obj.material.emissiveIntensity = pulse;
+      if (!(obj.isMesh && obj.material && obj.material.emissive) || obj.userData.isCrtScreen) {
+        return;
       }
+
+      const pulse = 0.18 + Math.sin(t * 3.2) * 0.06;
+      obj.material.emissive.setHex(0x1a4a28);
+      obj.material.emissiveIntensity = pulse;
     });
 
     const label = nearest.userData.label || nearest.userData.id;
@@ -600,7 +614,7 @@ function updateHover() {
     prompt.hidden = true;
     setCompass(copy.hud.compassIdle);
     flashlight.angle = THREE.MathUtils.lerp(flashlight.angle, FLASH_ANGLE, 0.2);
-    flashlight.intensity = live
+    flashlight.intensity = isLive
       ? 8.4 * (reduceMotion ? 1 : Math.max(enterBlend, 0.15))
       : 0;
   }
@@ -629,7 +643,7 @@ function typeText(el, text, done) {
   const caret = document.createElement("span");
   caret.className = "caret";
   caret.textContent = "█";
-  el.appendChild(caret);
+  el.append(caret);
   typeTimer = setInterval(() => {
     if (gen !== typeGen) {
       clearInterval(typeTimer);
@@ -651,7 +665,7 @@ function typeText(el, text, done) {
 
 function setExamineLink(href, linkText) {
   if (!examineLink) return;
-  const url = href != null ? String(href).trim() : "";
+  const url = href == null ? "" : String(href).trim();
   if (url && url !== "null" && url !== "undefined" && url !== "#") {
     examineLink.hidden = false;
     examineLink.setAttribute("href", url);
@@ -673,7 +687,7 @@ function openExamine(root) {
     typeTimer = null;
   }
 
-  examining = true;
+  isExamining = true;
   document.body.classList.add("is-examining");
   prompt.hidden = true;
   showAim(false);
@@ -686,7 +700,7 @@ function openExamine(root) {
 
   // Body before preview — preview errors must not skip the copy
   typeText(examineBody, body, () => {
-    if ([...primaryIds].every((pid) => found.has(pid))) {
+    if (primaryIds.isSubsetOf(found)) {
       setTicker(copy.ticker.primaryComplete.trim());
     }
   });
@@ -695,8 +709,8 @@ function openExamine(root) {
     examinePreview.resize();
     examinePreview.show(root);
     examinePreview.start();
-  } catch (err) {
-    console.warn("Examine preview failed", err);
+  } catch (error) {
+    console.warn("Examine preview failed", error);
   }
 
   found.add(id);
@@ -707,8 +721,8 @@ function openExamine(root) {
 }
 
 function closeExamine() {
-  if (!examining) return;
-  examining = false;
+  if (!isExamining) return;
+  isExamining = false;
   document.body.classList.remove("is-examining");
   examine.hidden = true;
   examinePreview.stop();
@@ -737,14 +751,15 @@ function closeExamine() {
   }
 }
 
-examine?.querySelectorAll("[data-close]").forEach((el) => {
+const examineCloseEls = examine?.querySelectorAll("[data-close]") ?? [];
+for (const el of examineCloseEls) {
   el.addEventListener("click", closeExamine);
-});
+}
 
 function openAbout(e) {
   e?.preventDefault?.();
-  if (examining) closeExamine();
-  aboutOpen = true;
+  if (isExamining) closeExamine();
+  isAboutOpen = true;
   document.body.classList.add("is-about");
   about?.removeAttribute("hidden");
   menuToggle?.setAttribute("aria-expanded", "true");
@@ -755,19 +770,19 @@ function openAbout(e) {
 }
 
 function closeAbout() {
-  aboutOpen = false;
+  isAboutOpen = false;
   document.body.classList.remove("is-about");
   about?.setAttribute("hidden", "");
   menuToggle?.setAttribute("aria-expanded", "false");
   menuToggle?.setAttribute("aria-label", copy.hud.menuOpen);
-  if (isTouch && live) centerAim();
-  showAim(!!live);
+  if (isTouch && isLive) centerAim();
+  showAim(!!isLive);
   menuToggle?.focus();
 }
 
 menuToggle?.addEventListener("click", (e) => {
   e.stopPropagation();
-  if (aboutOpen) closeAbout();
+  if (isAboutOpen) closeAbout();
   else openAbout(e);
 });
 
@@ -776,15 +791,16 @@ brandLink?.addEventListener("click", (e) => {
   openAbout(e);
 });
 
-about?.querySelectorAll("[data-about-close]").forEach((el) => {
+const aboutCloseEls = about?.querySelectorAll("[data-about-close]") ?? [];
+for (const el of aboutCloseEls) {
   el.addEventListener("click", closeAbout);
-});
+}
 
 if (isTouch) {
   centerAim();
 
   window.addEventListener("pointerdown", (e) => {
-    if (!live || examining || aboutOpen || isUiTarget(e.target)) return;
+    if (!isLive || isExamining || isAboutOpen || isUiTarget(e.target)) return;
     touchDrag = {
       id: e.pointerId,
       x: e.clientX,
@@ -796,35 +812,38 @@ if (isTouch) {
     try {
       canvas.setPointerCapture?.(e.pointerId);
     } catch {
-      /* ignore */
+      /*
+      ignore
+      */
     }
   });
 
   window.addEventListener("pointermove", (e) => {
-    if (!touchDrag || e.pointerId !== touchDrag.id) return;
-    if (examining || aboutOpen) return;
+    if (!touchDrag || isExamining || isAboutOpen || e.pointerId !== touchDrag.id) return;
     const dx = e.clientX - touchDrag.x;
     const dy = e.clientY - touchDrag.y;
     if (Math.hypot(dx, dy) > TAP_PX) {
       touchDrag.moved = true;
-      touchPromptReady = true;
+      isTouchPromptReady = true;
     }
-    if (touchDrag.moved) {
-      lookYaw = THREE.MathUtils.clamp(
-        touchDrag.startYaw - dx * LOOK_SENS,
-        -LOOK_YAW_MAX,
-        LOOK_YAW_MAX
-      );
-      lookPitch = THREE.MathUtils.clamp(
-        touchDrag.startPitch - dy * LOOK_SENS,
-        LOOK_PITCH_MIN - BASE_PITCH,
-        LOOK_PITCH_MAX - BASE_PITCH
-      );
-      lookVelYaw = -dx * LOOK_SENS * 0.12;
-      lookVelPitch = -dy * LOOK_SENS * 0.12;
-      applyCameraLook();
-      centerAim();
+    if (!touchDrag.moved) {
+      return;
     }
+
+    lookYaw = THREE.MathUtils.clamp(
+      touchDrag.startYaw - dx * LOOK_SENS,
+      -LOOK_YAW_MAX,
+      LOOK_YAW_MAX
+    );
+    lookPitch = THREE.MathUtils.clamp(
+      touchDrag.startPitch - dy * LOOK_SENS,
+      LOOK_PITCH_MIN - BASE_PITCH,
+      LOOK_PITCH_MAX - BASE_PITCH
+    );
+    lookVelYaw = -dx * LOOK_SENS * 0.12;
+    lookVelPitch = -dy * LOOK_SENS * 0.12;
+    applyCameraLook();
+    centerAim();
   });
 
   function endTouchDrag(e) {
@@ -836,11 +855,13 @@ if (isTouch) {
     try {
       canvas.releasePointerCapture?.(e.pointerId);
     } catch {
-      /* ignore */
+      /*
+      ignore
+      */
     }
-    if (!live || examining || aboutOpen) return;
+    if (!isLive || isExamining || isAboutOpen) return;
     if (wasTap) {
-      touchPromptReady = true;
+      isTouchPromptReady = true;
       updatePointer(tapX, tapY);
       aimFlashlight();
       updateHover();
@@ -857,13 +878,12 @@ if (isTouch) {
   window.addEventListener("pointercancel", endTouchDrag);
 } else {
   window.addEventListener("pointermove", (e) => {
-    if (examining || aboutOpen) return;
+    if (isExamining || isAboutOpen) return;
     updatePointer(e.clientX, e.clientY);
   });
 
   window.addEventListener("click", (e) => {
-    if (!live || examining || aboutOpen) return;
-    if (isUiTarget(e.target)) return;
+    if (!isLive || isExamining || isAboutOpen || isUiTarget(e.target)) return;
     updatePointer(e.clientX, e.clientY);
     aimFlashlight();
     updateHover();
@@ -873,29 +893,26 @@ if (isTouch) {
 
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
-    if (aboutOpen) {
+    if (isAboutOpen) {
       closeAbout();
       return;
     }
-    if (live) closeExamine();
+    if (isLive) closeExamine();
   }
-  if (!live) {
+  if (!isLive) {
     if (e.key === "Enter" || e.key === " ") {
-      if (aboutOpen) return;
+      if (isAboutOpen) return;
       e.preventDefault();
       enterRoom();
     }
     return;
   }
-  if (
-    (e.key === "e" || e.key === "E" || e.key === "Enter") &&
-    nearest &&
-    !examining &&
-    !aboutOpen
-  ) {
-    e.preventDefault();
-    openExamine(nearest);
+  if (isExamining || isAboutOpen || !nearest || !["e", "E", "Enter"].includes(e.key)) {
+    return;
   }
+
+  e.preventDefault();
+  openExamine(nearest);
 });
 
 function handleResize() {
@@ -905,7 +922,7 @@ function handleResize() {
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
   examinePreview.resize();
-  if (isTouch && live && !examining && !aboutOpen) {
+  if (isTouch && isLive && !isExamining && !isAboutOpen) {
     centerAim();
   }
 }
@@ -933,7 +950,7 @@ function updateStormLight() {
 }
 
 function updateDust(dt) {
-  if (!dust || !dustPositions || !live) return;
+  if (!dust || !dustPositions || !isLive) return;
   const targetOpacity = 0.28 * enterBlend;
   dust.material.opacity = THREE.MathUtils.lerp(dust.material.opacity, targetOpacity, 0.08);
   const aim = _aimDir;
@@ -947,11 +964,13 @@ function updateDust(dt) {
     dustPositions[ix] += aim.x * 0.001;
     dustPositions[ix + 2] += aim.z * 0.001;
 
-    if (dustPositions[ix + 1] > 4.6) {
-      dustPositions[ix] = camera.position.x + (Math.random() - 0.5) * 5;
-      dustPositions[ix + 1] = 0.25 + Math.random() * 0.6;
-      dustPositions[ix + 2] = camera.position.z + (Math.random() - 0.5) * 4 - 1.5;
+    if (!(dustPositions[ix + 1] > 4.6)) {
+      continue;
     }
+
+    dustPositions[ix] = camera.position.x + (Math.random() - 0.5) * 5;
+    dustPositions[ix + 1] = 0.25 + Math.random() * 0.6;
+    dustPositions[ix + 2] = camera.position.z + (Math.random() - 0.5) * 4 - 1.5;
   }
   dust.geometry.attributes.position.needsUpdate = true;
 }
@@ -961,17 +980,16 @@ function animate() {
   const dt = 0.016;
   t += dt;
 
-  if (live && enterBlend < 1) {
+  if (isLive && enterBlend < 1) {
     enterBlend = reduceMotion ? 1 : Math.min(1, enterBlend + dt * 0.55);
     flashFill.intensity = 1.15 * enterBlend;
-    if (examining || aboutOpen) {
+    if (isExamining || isAboutOpen) {
       flashlight.intensity = 8.4 * enterBlend;
     }
   }
 
   // Touch look inertia
-  if (isTouch && live && !examining && !aboutOpen && !touchDrag && !reduceMotion) {
-    if (Math.abs(lookVelYaw) > 0.00005 || Math.abs(lookVelPitch) > 0.00005) {
+  if (isTouch && isLive && !isExamining && !isAboutOpen && !touchDrag && !reduceMotion && (Math.abs(lookVelYaw) > 0.00005 || Math.abs(lookVelPitch) > 0.00005)) {
       lookYaw = THREE.MathUtils.clamp(lookYaw + lookVelYaw, -LOOK_YAW_MAX, LOOK_YAW_MAX);
       lookPitch = THREE.MathUtils.clamp(
         lookPitch + lookVelPitch,
@@ -983,10 +1001,9 @@ function animate() {
       applyCameraLook();
       centerAim();
     }
-  }
 
   // Subtle idle breathe on desktop
-  if (!isTouch && live && !examining && !aboutOpen && !reduceMotion) {
+  if (!isTouch && isLive && !isExamining && !isAboutOpen && !reduceMotion) {
     const breathe = Math.sin(t * 0.55) * CAM_BREATHE;
     camera.position.y = CAM_HOME.y + breathe;
     camera.position.x = CAM_HOME.x + Math.sin(t * 0.27) * CAM_BREATHE * 0.45;
@@ -996,14 +1013,14 @@ function animate() {
 
   if (!reduceMotion) {
     if (lowPower) {
-      if ((t * 60 | 0) % 2 === 0) updateStormLight();
+      if (Math.trunc(t * 60) % 2 === 0) updateStormLight();
     } else {
       updateStormLight();
       updateDust(dt);
     }
   }
 
-  if (live && !examining && !aboutOpen) {
+  if (isLive && !isExamining && !isAboutOpen) {
     aimFlashlight();
     updateHover();
     // subtle flicker
@@ -1013,7 +1030,7 @@ function animate() {
       flashlight.intensity = THREE.MathUtils.clamp(
         flashlight.intensity,
         nearest ? 8.6 : 7.8,
-        nearest ? 9.8 : 9.0
+        nearest ? 9.8 : 9
       );
     }
   }
@@ -1024,6 +1041,6 @@ function animate() {
 animate();
 
 if (reduceMotion) {
-  bootLines.forEach((l) => l.classList.add("is-shown"));
+  for (const l of bootLines) l.classList.add("is-shown");
   bootPrompt?.classList.add("is-shown");
 }

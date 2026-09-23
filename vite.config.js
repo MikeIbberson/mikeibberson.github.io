@@ -1,9 +1,11 @@
 import { defineConfig } from "vite";
 
-/** "/" locally and on a user site; "/repo/" when Pages serves a project site. */
+/**
+"/" locally and on a user site; "/repo/" when Pages serves a project site.
+*/
 function siteBase() {
   const raw = (process.env.VITE_BASE_PATH || "/").trim();
-  if (raw === "" || raw === "/" || raw === "./") return "/";
+  if (["", "/", "./"].includes(raw)) return "/";
   const withLeading = raw.startsWith("/") ? raw : `/${raw}`;
   return withLeading.endsWith("/") ? withLeading : `${withLeading}/`;
 }

@@ -33,28 +33,34 @@ function markInteractable(root, id, label) {
   root.userData.id = id;
   root.userData.label = label;
   root.traverse((obj) => {
-    if (obj.isMesh) {
-      obj.castShadow = true;
-      obj.receiveShadow = true;
-      obj.userData.id = id;
-      obj.userData.label = label;
+    if (!obj.isMesh) {
+      return;
     }
+
+    obj.castShadow = true;
+    obj.receiveShadow = true;
+    obj.userData.id = id;
+    obj.userData.label = label;
   });
   return root;
 }
 
 function prepareGltfScene(scene) {
   scene.traverse((obj) => {
-    if (obj.isMesh) {
-      obj.castShadow = true;
-      obj.receiveShadow = true;
-      if (obj.material) {
-        const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-        mats.forEach((m) => {
-          m.side = THREE.FrontSide;
-          if ("envMapIntensity" in m) m.envMapIntensity = 0.6;
-        });
-      }
+    if (!obj.isMesh) {
+      return;
+    }
+
+    obj.castShadow = true;
+    obj.receiveShadow = true;
+    if (!obj.material) {
+      return;
+    }
+
+    const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+    for (const m of mats) {
+      m.side = THREE.FrontSide;
+      if ("envMapIntensity" in m) m.envMapIntensity = 0.6;
     }
   });
   return scene;
@@ -80,7 +86,7 @@ function placeModel(object, targetSize, { euler = [0, 0, 0], yOffset = 0 } = {})
   object.updateMatrixWorld(true);
 
   let box = new THREE.Box3().setFromObject(object);
-  let size = box.getSize(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
   const maxDim = Math.max(size.x, size.y, size.z) || 1;
   object.scale.setScalar(targetSize / maxDim);
   object.updateMatrixWorld(true);
@@ -106,8 +112,8 @@ async function bookshelf() {
       euler: [0, FACE.bookcase, 0],
     });
     g.add(model);
-  } catch (err) {
-    console.warn("Bookcase GLB failed", err);
+  } catch (error) {
+    console.warn("Bookcase GLB failed", error);
   }
   // On the back wall so shelves face into the room / camera
   g.position.set(-2.8, 0, -4.55);
@@ -118,36 +124,36 @@ async function deskComputer() {
   const g = new THREE.Group();
   const wood = woodMaterial(0x5a4030, 0.8);
 
-  const top = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.1, 1.0), wood);
+  const top = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.1, 1), wood);
   top.position.y = 0.95;
   top.castShadow = true;
   top.receiveShadow = true;
   g.add(top);
 
   const legGeo = new THREE.BoxGeometry(0.1, 0.95, 0.1);
-  [
+  for (const [x, y, z] of [
     [-0.95, 0.475, -0.4],
     [0.95, 0.475, -0.4],
     [-0.95, 0.475, 0.4],
     [0.95, 0.475, 0.4],
-  ].forEach(([x, y, z]) => {
+  ]) {
     const leg = new THREE.Mesh(legGeo, wood);
     leg.position.set(x, y, z);
     leg.castShadow = true;
     g.add(leg);
-  });
+  }
 
   try {
     // New CRT model is Y-up; yaw only so the screen faces the camera
     const model = await loadPlaced(publicUrl("/models/computer.glb"), 0.75, {
       euler: [0, FACE.computer, 0],
-      yOffset: 1.0,
+      yOffset: 1,
     });
     model.position.x -= 0.15;
     model.position.z += 0.02;
     g.add(model);
-  } catch (err) {
-    console.warn("Computer GLB failed", err);
+  } catch (error) {
+    console.warn("Computer GLB failed", error);
   }
 
   g.position.set(0.2, 0, -3.5);
@@ -161,8 +167,8 @@ async function guitar() {
       euler: [0, FACE.guitar, -0.1],
     });
     g.add(model);
-  } catch (err) {
-    console.warn("Guitar GLB failed", err);
+  } catch (error) {
+    console.warn("Guitar GLB failed", error);
   }
   g.position.set(3.7, 0, -3.7);
   return markInteractable(g, "guitar", itemLabel("guitar", "Guitar"));
@@ -173,11 +179,11 @@ async function runner() {
   try {
     const model = await loadPlaced(publicUrl("/models/runner.glb"), 0.42, {
       euler: [0, FACE.runner, 0],
-      yOffset: 1.0,
+      yOffset: 1,
     });
     g.add(model);
-  } catch (err) {
-    console.warn("Runner GLB failed", err);
+  } catch (error) {
+    console.warn("Runner GLB failed", error);
   }
   g.position.set(0.9, 0, -3.35);
   return markInteractable(g, "runner", itemLabel("runner", "Running statue"));
@@ -190,8 +196,8 @@ async function dog() {
       euler: [0, FACE.dog, 0],
     });
     g.add(model);
-  } catch (err) {
-    console.warn("Dog GLB failed", err);
+  } catch (error) {
+    console.warn("Dog GLB failed", error);
   }
   g.position.set(1.6, 0, -2.2);
   return markInteractable(g, "dog", itemLabel("dog", "Robot dog"));
@@ -202,11 +208,11 @@ async function mug() {
   try {
     const model = await loadPlaced(publicUrl("/models/mug.glb"), 0.28, {
       euler: [0, FACE.mug, 0],
-      yOffset: 1.0,
+      yOffset: 1,
     });
     g.add(model);
-  } catch (err) {
-    console.warn("Mug GLB failed", err);
+  } catch (error) {
+    console.warn("Mug GLB failed", error);
     const fallback = new THREE.Mesh(
       new THREE.CylinderGeometry(0.07, 0.065, 0.14, 20),
       paintMaterial(0xc4c4c4, 0.45)
@@ -311,8 +317,8 @@ async function chair() {
       euler: [0, -0.28, 0],
     });
     g.add(model);
-  } catch (err) {
-    console.warn("Chair GLB failed", err);
+  } catch (error) {
+    console.warn("Chair GLB failed", error);
   }
   g.position.set(0.35, 0, -2.35);
   return g;
@@ -326,10 +332,10 @@ async function carpet() {
       yOffset: 0.01,
     });
     g.add(model);
-  } catch (err) {
-    console.warn("Carpet GLB failed", err);
+  } catch (error) {
+    console.warn("Carpet GLB failed", error);
   }
-  g.position.set(0.4, 0, -2.0);
+  g.position.set(0.4, 0, -2);
   return g;
 }
 
@@ -347,7 +353,9 @@ export async function createProps() {
   ]);
 }
 
-/** Non-interactive room decoration (not raycast / examine targets). */
+/**
+Non-interactive room decoration (not raycast / examine targets).
+*/
 export async function createDecor() {
   return Promise.all([chair(), carpet()]);
 }

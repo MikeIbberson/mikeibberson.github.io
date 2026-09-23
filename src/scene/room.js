@@ -28,7 +28,7 @@ export function createRoom() {
   const wallMat = new THREE.MeshStandardMaterial({
     map: wallTex,
     roughness: 0.96,
-    metalness: 0.0,
+    metalness: 0,
   });
 
   const back = new THREE.Mesh(new THREE.PlaneGeometry(12, 5.5), wallMat);
@@ -58,11 +58,11 @@ export function createRoom() {
 
   // Baseboard
   const baseMat = woodMaterial(0x2a1c12, 0.8);
-  [-5, 5].forEach((x) => {
+  for (const x of [-5, 5]) {
     const b = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.25, 10), baseMat);
     b.position.set(x > 0 ? 5.96 : -5.96, 0.12, 0);
     group.add(b);
-  });
+  }
   const backBase = new THREE.Mesh(new THREE.BoxGeometry(12, 0.25, 0.08), baseMat);
   backBase.position.set(0, 0.12, -4.96);
   group.add(backBase);
@@ -72,11 +72,11 @@ export function createRoom() {
   const crownBack = new THREE.Mesh(new THREE.BoxGeometry(12, 0.12, 0.08), crownMat);
   crownBack.position.set(0, 5.38, -4.96);
   group.add(crownBack);
-  [-5.96, 5.96].forEach((x) => {
+  for (const x of [-5.96, 5.96]) {
     const crown = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 10), crownMat);
     crown.position.set(x, 5.38, 0);
     group.add(crown);
-  });
+  }
 
   // Window niche — open frame so the storm plays through the glass
   const frameMat = woodMaterial(0x2a1e16, 0.7);
@@ -190,7 +190,7 @@ function createStormPane(paneW, paneH) {
   // Keep it in the DOM without display:none — some browsers skip VideoTexture otherwise.
   video.style.cssText =
     "position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;";
-  document.body.appendChild(video);
+  document.body.append(video);
 
   const texture = new THREE.VideoTexture(video);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -237,15 +237,20 @@ function createStormPane(paneW, paneH) {
       lastLuma = sum / count / 255;
       lastHot = hot / count;
     } catch {
-      /* keep the previous sample if the frame isn't readable yet */
+      /*
+      keep the previous sample if the frame isn't readable yet
+      */
     }
     return { luma: lastLuma, hot: lastHot };
   }
 
-  function play() {
+  async function play() {
     if (reduceMotion) return;
-    const pending = video.play();
-    if (pending?.catch) pending.catch(() => {});
+    try {
+      await video.play();
+    } catch {
+      /* autoplay blocked */
+    }
   }
 
   function pause() {
