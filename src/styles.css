@@ -484,14 +484,6 @@ body.is-booting .hud__center {
   animation: aim-pulse 1.4s ease-out infinite;
 }
 
-/* Fixed center reticle for touch look-around */
-.aim.aim--touch {
-  left: 50% !important;
-  top: 48% !important;
-  --ax: 50%;
-  --ay: 48%;
-}
-
 body.is-touch .aim:not(.aim--touch) {
   display: none;
 }

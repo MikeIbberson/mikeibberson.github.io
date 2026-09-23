@@ -199,7 +199,6 @@ const BASE_PITCH = Math.asin(THREE.MathUtils.clamp(_lookDir.y, -1, 1));
 const LOOK_YAW_MAX = 0.72;
 const LOOK_PITCH_MIN = -0.32;
 const LOOK_PITCH_MAX = 0.48;
-const LOOK_SENS = 0.0038;
 let lookYaw = 0;
 let lookPitch = 0;
 const _lookTarget = new THREE.Vector3();
@@ -385,8 +384,8 @@ const TAP_PX = 14;
 let touchDrag = null;
 /** On touch, suppress examine prompts until the user looks around or taps. */
 let isTouchPromptReady = !isTouch;
-let lookVelYaw = 0;
-let lookVelPitch = 0;
+const _grabPoint = new THREE.Vector3();
+const _projected = new THREE.Vector3();
 
 function setTicker(text = "") {
   if (!ticker || ticker.textContent === text) return;
@@ -406,17 +405,10 @@ function setCompass(text) {
   if (compass) compass.textContent = text;
 }
 
-function centerAim() {
-  const { w, h } = viewSize();
-  updatePointer(w * 0.5, h * 0.48);
-}
-
 function updateAim() {
   if (!aim) return;
-  if (!isTouch) {
-    aim.style.setProperty("--ax", `${aimClientX}px`);
-    aim.style.setProperty("--ay", `${aimClientY}px`);
-  }
+  aim.style.setProperty("--ax", `${aimClientX}px`);
+  aim.style.setProperty("--ay", `${aimClientY}px`);
   aim.classList.toggle("is-lock", !!nearest && isLive && !isExamining && !isAboutOpen);
 }
 
@@ -440,8 +432,6 @@ function enterRoom() {
   if (isTouch) {
     lookYaw = 0;
     lookPitch = 0;
-    lookVelYaw = 0;
-    lookVelPitch = 0;
     isTouchPromptReady = false;
     applyCameraLook();
     centerAim();
@@ -473,13 +463,61 @@ bootPrompt?.addEventListener("keydown", (e) => {
   enterRoom();
 });
 
+function canvasBox() {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    left: rect.left,
+    top: rect.top,
+    w: rect.width || window.innerWidth,
+    h: rect.height || window.innerHeight,
+  };
+}
+
 function updatePointer(clientX, clientY) {
-  const { w, h } = viewSize();
+  const { left, top, w, h } = canvasBox();
+  const x = clientX - left;
+  const y = clientY - top;
   aimClientX = clientX;
   aimClientY = clientY;
-  pointer.x = (clientX / w) * 2 - 1;
-  pointer.y = -(clientY / h) * 2 + 1;
+  pointer.x = (x / w) * 2 - 1;
+  pointer.y = -(y / h) * 2 + 1;
   updateAim();
+}
+
+function centerAim() {
+  const { left, top, w, h } = canvasBox();
+  updatePointer(left + w * 0.5, top + h * 0.48);
+}
+
+/** World point currently under the touch, used so a drag keeps that point on the finger. */
+function grabPointFromPointer() {
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(scene.children, true);
+  const solid = hits.find((hit) => isSolidHit(hit));
+  if (solid) _grabPoint.copy(solid.point);
+  else _grabPoint.copy(camera.position).addScaledVector(raycaster.ray.direction, 8);
+}
+
+function stickGrabToPointer() {
+  const { w, h } = canvasBox();
+  const vFov = THREE.MathUtils.degToRad(camera.fov);
+  const focal = (h * 0.5) / Math.tan(vFov * 0.5);
+  const yawMin = -LOOK_YAW_MAX;
+  const yawMax = LOOK_YAW_MAX;
+  const pitchMin = LOOK_PITCH_MIN - BASE_PITCH;
+  const pitchMax = LOOK_PITCH_MAX - BASE_PITCH;
+
+  for (let i = 0; i < 8; i += 1) {
+    applyCameraLook();
+    camera.updateMatrixWorld();
+    _projected.copy(_grabPoint).project(camera);
+    const ex = pointer.x - _projected.x;
+    const ey = pointer.y - _projected.y;
+    if (ex * ex + ey * ey < 1e-5) break;
+    lookYaw = THREE.MathUtils.clamp(lookYaw - (ex * w * 0.5) / focal, yawMin, yawMax);
+    lookPitch = THREE.MathUtils.clamp(lookPitch - (ey * h * 0.5) / focal, pitchMin, pitchMax);
+  }
+  applyCameraLook();
 }
 
 function isUiTarget(el) {
@@ -509,7 +547,9 @@ function aimFlashlight() {
   _aimTarget.copy(camera.position).addScaledVector(_aimDir, 12);
 
   if (isAimReady) {
-    _smoothedTarget.lerp(_aimTarget, reduceMotion ? 1 : 0.62);
+    // Touch aims at the finger directly — smoothing makes the beam lag the drag.
+    const follow = reduceMotion || isTouch ? 1 : 0.62;
+    _smoothedTarget.lerp(_aimTarget, follow);
   } else {
     _smoothedTarget.copy(_aimTarget);
     isAimReady = true;
@@ -735,7 +775,6 @@ function closeExamine() {
   setExamineLink(null);
   if (examineTitle) examineTitle.textContent = "";
   setCompass(copy.hud.compassIdle);
-  if (isTouch) centerAim();
   showAim(true);
   if (found.size === 0) {
     setTicker((isTouch ? copy.ticker.introTouch || copy.ticker.idle : copy.ticker.idle).trim());
@@ -775,7 +814,6 @@ function closeAbout() {
   about?.setAttribute("hidden", "");
   menuToggle?.setAttribute("aria-expanded", "false");
   menuToggle?.setAttribute("aria-label", copy.hud.menuOpen);
-  if (isTouch && isLive) centerAim();
   showAim(!!isLive);
   menuToggle?.focus();
 }
@@ -800,7 +838,13 @@ if (isTouch) {
   centerAim();
 
   window.addEventListener("pointerdown", (e) => {
-    if (!isLive || isExamining || isAboutOpen || isUiTarget(e.target)) return;
+    if (!isLive || isExamining || isAboutOpen || !e.isPrimary || isUiTarget(e.target)) return;
+    isTouchPromptReady = true;
+    updatePointer(e.clientX, e.clientY);
+    grabPointFromPointer();
+    isAimReady = false;
+    aimFlashlight();
+    updateHover();
     touchDrag = {
       id: e.pointerId,
       x: e.clientX,
@@ -818,39 +862,31 @@ if (isTouch) {
     }
   });
 
-  window.addEventListener("pointermove", (e) => {
-    if (!touchDrag || isExamining || isAboutOpen || e.pointerId !== touchDrag.id) return;
-    const dx = e.clientX - touchDrag.x;
-    const dy = e.clientY - touchDrag.y;
-    if (Math.hypot(dx, dy) > TAP_PX) {
-      touchDrag.moved = true;
-      isTouchPromptReady = true;
-    }
-    if (!touchDrag.moved) {
-      return;
-    }
-
-    lookYaw = THREE.MathUtils.clamp(
-      touchDrag.startYaw - dx * LOOK_SENS,
-      -LOOK_YAW_MAX,
-      LOOK_YAW_MAX
-    );
-    lookPitch = THREE.MathUtils.clamp(
-      touchDrag.startPitch - dy * LOOK_SENS,
-      LOOK_PITCH_MIN - BASE_PITCH,
-      LOOK_PITCH_MAX - BASE_PITCH
-    );
-    lookVelYaw = -dx * LOOK_SENS * 0.12;
-    lookVelPitch = -dy * LOOK_SENS * 0.12;
-    applyCameraLook();
-    centerAim();
-  });
+  window.addEventListener(
+    "pointermove",
+    (e) => {
+      if (isExamining || isAboutOpen || !touchDrag || !e.isPrimary || e.pointerId !== touchDrag.id) {
+        return;
+      }
+      if (e.cancelable) e.preventDefault();
+      updatePointer(e.clientX, e.clientY);
+      const dx = e.clientX - touchDrag.x;
+      const dy = e.clientY - touchDrag.y;
+      if (Math.hypot(dx, dy) > TAP_PX) touchDrag.moved = true;
+      stickGrabToPointer();
+      aimFlashlight();
+      updateHover();
+    },
+    { passive: false }
+  );
 
   function endTouchDrag(e) {
     if (!touchDrag || e.pointerId !== touchDrag.id) return;
     const wasTap = !touchDrag.moved;
-    const tapX = e.clientX;
-    const tapY = e.clientY;
+    const originX = touchDrag.x;
+    const originY = touchDrag.y;
+    const startYaw = touchDrag.startYaw;
+    const startPitch = touchDrag.startPitch;
     touchDrag = null;
     try {
       canvas.releasePointerCapture?.(e.pointerId);
@@ -861,24 +897,25 @@ if (isTouch) {
     }
     if (!isLive || isExamining || isAboutOpen) return;
     if (wasTap) {
-      isTouchPromptReady = true;
-      updatePointer(tapX, tapY);
-      aimFlashlight();
-      updateHover();
-      if (nearest) openExamine(nearest);
-      centerAim();
-    } else {
-      centerAim();
-      aimFlashlight();
-      updateHover();
+      lookYaw = startYaw;
+      lookPitch = startPitch;
+      applyCameraLook();
+      updatePointer(originX, originY);
+    } else if (e.type !== "pointercancel") {
+      updatePointer(e.clientX, e.clientY);
+      stickGrabToPointer();
     }
+    aimFlashlight();
+    updateHover();
+    if (wasTap && nearest) openExamine(nearest);
   }
 
   window.addEventListener("pointerup", endTouchDrag);
   window.addEventListener("pointercancel", endTouchDrag);
 } else {
   window.addEventListener("pointermove", (e) => {
-    if (isExamining || isAboutOpen) return;
+    // Keep tracking while a panel is open so the crosshair returns
+    // under the cursor, not the click that opened the panel.
     updatePointer(e.clientX, e.clientY);
   });
 
@@ -922,9 +959,12 @@ function handleResize() {
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
   examinePreview.resize();
-  if (isTouch && isLive && !isExamining && !isAboutOpen) {
-    centerAim();
-  }
+  if (!isTouch || !isLive || isExamining || isAboutOpen || touchDrag) return;
+  const box = canvasBox();
+  updatePointer(
+    box.left + ((pointer.x + 1) * 0.5) * box.w,
+    box.top + ((1 - pointer.y) * 0.5) * box.h
+  );
 }
 
 window.addEventListener("resize", handleResize);
@@ -987,20 +1027,6 @@ function animate() {
       flashlight.intensity = 8.4 * enterBlend;
     }
   }
-
-  // Touch look inertia
-  if (isTouch && isLive && !isExamining && !isAboutOpen && !touchDrag && !reduceMotion && (Math.abs(lookVelYaw) > 0.00005 || Math.abs(lookVelPitch) > 0.00005)) {
-      lookYaw = THREE.MathUtils.clamp(lookYaw + lookVelYaw, -LOOK_YAW_MAX, LOOK_YAW_MAX);
-      lookPitch = THREE.MathUtils.clamp(
-        lookPitch + lookVelPitch,
-        LOOK_PITCH_MIN - BASE_PITCH,
-        LOOK_PITCH_MAX - BASE_PITCH
-      );
-      lookVelYaw *= 0.92;
-      lookVelPitch *= 0.92;
-      applyCameraLook();
-      centerAim();
-    }
 
   // Subtle idle breathe on desktop
   if (!isTouch && isLive && !isExamining && !isAboutOpen && !reduceMotion) {
