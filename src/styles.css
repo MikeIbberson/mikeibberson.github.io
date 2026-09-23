@@ -326,6 +326,89 @@ body.is-booting .hud__center {
   animation: blink 1s steps(1) infinite;
 }
 
+.aim {
+  position: fixed;
+  left: var(--ax, 50%);
+  top: var(--ay, 50%);
+  z-index: 34;
+  width: 28px;
+  height: 28px;
+  translate: -50% -50%;
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.aim[hidden] {
+  display: none;
+}
+
+.aim__cross {
+  position: absolute;
+  background: rgba(92, 255, 138, 0.5);
+  box-shadow: 0 0 5px rgba(92, 255, 138, 0.18);
+}
+
+.aim__cross--h {
+  top: 50%;
+  left: 0;
+  width: 8px;
+  height: 1px;
+  translate: 0 -50%;
+  box-shadow:
+    0 0 5px rgba(92, 255, 138, 0.18),
+    20px 0 0 rgba(92, 255, 138, 0.5),
+    20px 0 5px rgba(92, 255, 138, 0.18);
+}
+
+.aim__cross--v {
+  left: 50%;
+  top: 0;
+  width: 1px;
+  height: 8px;
+  translate: -50% 0;
+  box-shadow:
+    0 0 5px rgba(92, 255, 138, 0.18),
+    0 20px 0 rgba(92, 255, 138, 0.5),
+    0 20px 5px rgba(92, 255, 138, 0.18);
+}
+
+.aim__dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 6px rgba(212, 181, 106, 0.4);
+}
+
+.aim.is-lock {
+  opacity: 1;
+}
+
+.aim.is-lock .aim__cross--h {
+  background: var(--green);
+  box-shadow:
+    0 0 7px rgba(92, 255, 138, 0.3),
+    20px 0 0 var(--green),
+    20px 0 7px rgba(92, 255, 138, 0.3);
+}
+
+.aim.is-lock .aim__cross--v {
+  background: var(--green);
+  box-shadow:
+    0 0 7px rgba(92, 255, 138, 0.3),
+    0 20px 0 var(--green),
+    0 20px 7px rgba(92, 255, 138, 0.3);
+}
+
+.aim.is-lock .aim__dot {
+  background: var(--green);
+  box-shadow: 0 0 8px rgba(92, 255, 138, 0.55);
+}
+
 .examine {
   position: fixed;
   inset: 0;

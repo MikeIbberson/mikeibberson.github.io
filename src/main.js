@@ -128,6 +128,7 @@ const compass = document.getElementById("hud-compass");
 const about = document.getElementById("about");
 const menuToggle = document.getElementById("menu-toggle");
 const brandLink = document.getElementById("brand-link");
+const aim = document.getElementById("aim");
 
 const copy = content;
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -300,6 +301,8 @@ const found = new Set();
 const primaryIds = new Set(PRIMARY_ITEMS);
 const TAP_PX = 14;
 let touchDrag = null;
+/** On touch, suppress examine prompts until the user looks around or taps. */
+let touchPromptReady = !isTouch;
 
 function setTicker(text) {
   if (ticker) ticker.textContent = text;
@@ -311,6 +314,19 @@ function setCompass(text) {
 function centerAim() {
   const { w, h } = viewSize();
   updatePointer(w * 0.5, h * 0.48);
+}
+
+function updateAim() {
+  if (!aim || isTouch) return;
+  aim.style.setProperty("--ax", `${aimClientX}px`);
+  aim.style.setProperty("--ay", `${aimClientY}px`);
+  aim.classList.toggle("is-lock", !!nearest && live && !examining && !aboutOpen);
+}
+
+function showAim(show) {
+  if (!aim || isTouch) return;
+  aim.hidden = !show;
+  if (show) updateAim();
 }
 
 function enterRoom() {
@@ -326,6 +342,7 @@ function enterRoom() {
   if (isTouch) {
     lookYaw = 0;
     lookPitch = 0;
+    touchPromptReady = false;
     applyCameraLook();
     centerAim();
     setTicker((copy.ticker.introTouch || copy.ticker.intro).trim());
@@ -333,6 +350,7 @@ function enterRoom() {
     const { w, h } = viewSize();
     updatePointer(w * 0.5, h * 0.48);
     setTicker(copy.ticker.intro.trim());
+    showAim(true);
   }
   setCompass(copy.hud.compassIdle);
 }
@@ -358,6 +376,7 @@ function updatePointer(clientX, clientY) {
   aimClientY = clientY;
   pointer.x = (clientX / w) * 2 - 1;
   pointer.y = -(clientY / h) * 2 + 1;
+  updateAim();
 }
 
 function isUiTarget(el) {
@@ -443,17 +462,17 @@ function updateHover() {
     });
   });
 
-  nearest = root;
+  nearest = root && hit && hit.distance < 14 ? root : null;
 
-  if (root && hit && hit.distance < 14) {
-    root.traverse((obj) => {
+  if (nearest && touchPromptReady) {
+    nearest.traverse((obj) => {
       if (obj.isMesh && obj.material && obj.material.emissive && !obj.userData.isCrtScreen) {
         obj.material.emissive.setHex(0x1a4a28);
         obj.material.emissiveIntensity = 0.22;
       }
     });
 
-    const label = root.userData.label || root.userData.id;
+    const label = nearest.userData.label || nearest.userData.id;
     prompt.hidden = false;
     const examineTpl = isTouch
       ? copy.prompt.examineTouch || copy.prompt.examine
@@ -463,7 +482,7 @@ function updateHover() {
     });
     // Project root center to screen for prompt
     const center = new THREE.Vector3();
-    new THREE.Box3().setFromObject(root).getCenter(center);
+    new THREE.Box3().setFromObject(nearest).getCenter(center);
     center.project(camera);
     const { w, h } = viewSize();
     const sx = (center.x * 0.5 + 0.5) * w;
@@ -479,6 +498,7 @@ function updateHover() {
     flashlight.angle = THREE.MathUtils.lerp(flashlight.angle, FLASH_ANGLE, 0.2);
     flashlight.intensity = live ? 8.4 : 0;
   }
+  updateAim();
 }
 
 function typeText(el, text, done) {
@@ -514,6 +534,7 @@ function openExamine(root) {
   examining = true;
   document.body.classList.add("is-examining");
   prompt.hidden = true;
+  showAim(false);
   examine.hidden = false;
 
   examineTitle.textContent = data.title;
@@ -551,6 +572,7 @@ function closeExamine() {
   if (typeTimer) clearInterval(typeTimer);
   setCompass(copy.hud.compassIdle);
   if (isTouch) centerAim();
+  else showAim(true);
   if (found.size === 0) {
     setTicker((isTouch ? copy.ticker.introTouch || copy.ticker.idle : copy.ticker.idle).trim());
   } else if (found.size < propRoots.length) {
@@ -578,6 +600,7 @@ function openAbout(e) {
   menuToggle?.setAttribute("aria-expanded", "true");
   menuToggle?.setAttribute("aria-label", copy.hud.menuClose);
   if (prompt) prompt.hidden = true;
+  showAim(false);
   about?.querySelector(".about__close")?.focus();
 }
 
@@ -588,6 +611,7 @@ function closeAbout() {
   menuToggle?.setAttribute("aria-expanded", "false");
   menuToggle?.setAttribute("aria-label", copy.hud.menuOpen);
   if (isTouch && live) centerAim();
+  else if (live) showAim(true);
   menuToggle?.focus();
 }
 
@@ -633,6 +657,7 @@ if (isTouch) {
     const dy = e.clientY - touchDrag.y;
     if (Math.hypot(dx, dy) > TAP_PX) {
       touchDrag.moved = true;
+      touchPromptReady = true;
     }
     if (touchDrag.moved) {
       lookYaw = THREE.MathUtils.clamp(
@@ -663,6 +688,7 @@ if (isTouch) {
     }
     if (!live || examining || aboutOpen) return;
     if (wasTap) {
+      touchPromptReady = true;
       updatePointer(tapX, tapY);
       aimFlashlight();
       updateHover();

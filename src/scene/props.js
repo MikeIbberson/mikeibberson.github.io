@@ -229,9 +229,9 @@ async function textlayerFrame() {
     new THREE.PlaneGeometry(0.62, 0.62),
     new THREE.MeshStandardMaterial({
       map: tex,
-      roughness: 0.72,
-      metalness: 0.08,
-      color: 0xf4f4f4,
+      roughness: 0.92,
+      metalness: 0.02,
+      color: 0xb9a88a,
     })
   );
   mark.position.z = 0.035;
