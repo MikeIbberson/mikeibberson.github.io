@@ -196,14 +196,35 @@ const LOOK_HOME = new THREE.Vector3(0.2, 1.6, -2);
 const _lookDir = new THREE.Vector3().subVectors(LOOK_HOME, CAM_HOME).normalize();
 const BASE_YAW = Math.atan2(_lookDir.x, -_lookDir.z);
 const BASE_PITCH = Math.asin(THREE.MathUtils.clamp(_lookDir.y, -1, 1));
-const LOOK_YAW_MAX = 0.72;
-const LOOK_PITCH_MIN = -0.32;
-const LOOK_PITCH_MAX = 0.48;
+/** Keep look centered on the desk/props — not empty side walls or ceiling. */
+const LOOK_YAW_MAX = 0.4;
+const LOOK_PITCH_MIN = -0.18;
+const LOOK_PITCH_MAX = 0.3;
+/** FOV scale — keep zoom modest so the desk stays framed. */
+const ZOOM_MIN = 0.72;
+const ZOOM_MAX = 1.06;
 let lookYaw = 0;
 let lookPitch = 0;
+let zoom = 1;
 const _lookTarget = new THREE.Vector3();
 
+function clampLookOffsets() {
+  lookYaw = THREE.MathUtils.clamp(lookYaw, -LOOK_YAW_MAX, LOOK_YAW_MAX);
+  lookPitch = THREE.MathUtils.clamp(
+    lookPitch,
+    LOOK_PITCH_MIN - BASE_PITCH,
+    LOOK_PITCH_MAX - BASE_PITCH
+  );
+}
+
+function applyCameraFov() {
+  zoom = THREE.MathUtils.clamp(zoom, ZOOM_MIN, ZOOM_MAX);
+  camera.fov = baseFov() * zoom;
+  camera.updateProjectionMatrix();
+}
+
 function applyCameraLook() {
+  clampLookOffsets();
   const yaw = BASE_YAW + lookYaw;
   const pitch = THREE.MathUtils.clamp(BASE_PITCH + lookPitch, LOOK_PITCH_MIN, LOOK_PITCH_MAX);
   _lookDir.set(
@@ -381,9 +402,18 @@ let enterBlend = 0;
 const found = new Set();
 const primaryIds = new Set(PRIMARY_ITEMS);
 const TAP_PX = 14;
-let touchDrag = null;
+/** Active look-drag (touch or mouse). Null when not dragging. */
+let lookDrag = null;
 /** On touch, suppress examine prompts until the user looks around or taps. */
 let isTouchPromptReady = !isTouch;
+/** Trackpad two-finger scroll → look; ctrl+wheel / pinch → zoom. */
+const WHEEL_LOOK_SCALE = 0.0009;
+const WHEEL_ZOOM_SCALE = 0.012;
+/** Desktop drag look is dampened vs mobile's 1:1 stick-grab. */
+const LOOK_DRAG_GAIN = isTouch ? 1 : 0.42;
+/** Active pointers for multi-touch pinch. */
+const activePointers = new Map();
+let pinch = null;
 const _grabPoint = new THREE.Vector3();
 const _projected = new THREE.Vector3();
 
@@ -429,17 +459,19 @@ function enterRoom() {
   flashFill.intensity = reduceMotion ? 1.15 : 0;
   startAmbience();
   storm.play();
+  lookYaw = 0;
+  lookPitch = 0;
+  zoom = 1;
+  applyCameraFov();
+  applyCameraLook();
   if (isTouch) {
-    lookYaw = 0;
-    lookPitch = 0;
     isTouchPromptReady = false;
-    applyCameraLook();
     centerAim();
     setTicker((copy.ticker.introTouch || copy.ticker.intro).trim());
   } else {
     const { w, h } = viewSize();
     updatePointer(w * 0.5, h * 0.48);
-    setTicker(copy.ticker.intro.trim());
+    setTicker((copy.ticker.introDesktop || copy.ticker.intro).trim());
   }
   if (aim) aim.classList.toggle("aim--touch", isTouch);
   showAim(true);
@@ -489,7 +521,7 @@ function centerAim() {
   updatePointer(left + w * 0.5, top + h * 0.48);
 }
 
-/** World point currently under the touch, used so a drag keeps that point on the finger. */
+/** World point currently under the pointer, used so a drag keeps that point under it. */
 function grabPointFromPointer() {
   raycaster.setFromCamera(pointer, camera);
   const hits = raycaster.intersectObjects(scene.children, true);
@@ -502,20 +534,20 @@ function stickGrabToPointer() {
   const { w, h } = canvasBox();
   const vFov = THREE.MathUtils.degToRad(camera.fov);
   const focal = (h * 0.5) / Math.tan(vFov * 0.5);
-  const yawMin = -LOOK_YAW_MAX;
-  const yawMax = LOOK_YAW_MAX;
-  const pitchMin = LOOK_PITCH_MIN - BASE_PITCH;
-  const pitchMax = LOOK_PITCH_MAX - BASE_PITCH;
+  // Mobile converges to 1:1 stick-grab; desktop takes one dampened step per move.
+  const steps = isTouch ? 8 : 1;
+  const gain = LOOK_DRAG_GAIN;
 
-  for (let i = 0; i < 8; i += 1) {
+  for (let i = 0; i < steps; i += 1) {
     applyCameraLook();
     camera.updateMatrixWorld();
     _projected.copy(_grabPoint).project(camera);
     const ex = pointer.x - _projected.x;
     const ey = pointer.y - _projected.y;
     if (ex * ex + ey * ey < 1e-5) break;
-    lookYaw = THREE.MathUtils.clamp(lookYaw - (ex * w * 0.5) / focal, yawMin, yawMax);
-    lookPitch = THREE.MathUtils.clamp(lookPitch - (ey * h * 0.5) / focal, pitchMin, pitchMax);
+    lookYaw -= ((ex * w * 0.5) / focal) * gain;
+    lookPitch -= ((ey * h * 0.5) / focal) * gain;
+    clampLookOffsets();
   }
   applyCameraLook();
 }
@@ -834,98 +866,203 @@ for (const el of aboutCloseEls) {
   el.addEventListener("click", closeAbout);
 }
 
+function beginLookDrag(e) {
+  if (!isLive || isExamining || isAboutOpen || isUiTarget(e.target)) return;
+  if (e.pointerType === "mouse" && e.button !== 0) return;
+
+  activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  try {
+    canvas.setPointerCapture?.(e.pointerId);
+  } catch {
+    /*
+    ignore
+    */
+  }
+
+  if (activePointers.size >= 2) {
+    beginPinch();
+    return;
+  }
+
+  if (!e.isPrimary && e.pointerType !== "mouse") return;
+  if (isTouch) isTouchPromptReady = true;
+  updatePointer(e.clientX, e.clientY);
+  grabPointFromPointer();
+  isAimReady = false;
+  aimFlashlight();
+  updateHover();
+  lookDrag = {
+    id: e.pointerId,
+    x: e.clientX,
+    y: e.clientY,
+    startYaw: lookYaw,
+    startPitch: lookPitch,
+    moved: false,
+  };
+}
+
+function pointerDistance() {
+  if (activePointers.size < 2) return 0;
+  const pts = [...activePointers.values()];
+  return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+}
+
+function beginPinch() {
+  if (lookDrag) {
+    lookDrag.moved = true;
+    lookDrag = null;
+  }
+  const dist = pointerDistance();
+  pinch = {
+    startDist: Math.max(dist, 1),
+    startZoom: zoom,
+  };
+}
+
+function movePinch() {
+  if (!pinch || activePointers.size < 2) return false;
+  const dist = pointerDistance();
+  zoom = pinch.startZoom * (dist / pinch.startDist);
+  applyCameraFov();
+  return true;
+}
+
+function resumeLookFromRemainingFinger() {
+  if (activePointers.size !== 1) return;
+  const [id, pt] = activePointers.entries().next().value;
+  updatePointer(pt.x, pt.y);
+  grabPointFromPointer();
+  lookDrag = {
+    id,
+    x: pt.x,
+    y: pt.y,
+    startYaw: lookYaw,
+    startPitch: lookPitch,
+    moved: true,
+  };
+}
+
+function moveLookDrag(e) {
+  if (!activePointers.has(e.pointerId)) return false;
+  activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (pinch || activePointers.size >= 2) {
+    if (activePointers.size >= 2 && !pinch) beginPinch();
+    if (e.cancelable) e.preventDefault();
+    movePinch();
+    return true;
+  }
+
+  if (isExamining || isAboutOpen || !lookDrag || e.pointerId !== lookDrag.id) {
+    return false;
+  }
+  if (e.cancelable) e.preventDefault();
+  updatePointer(e.clientX, e.clientY);
+  const dx = e.clientX - lookDrag.x;
+  const dy = e.clientY - lookDrag.y;
+  if (Math.hypot(dx, dy) > TAP_PX) lookDrag.moved = true;
+  stickGrabToPointer();
+  aimFlashlight();
+  updateHover();
+  return true;
+}
+
+function endLookDrag(e) {
+  const hadPinch = !!pinch;
+  activePointers.delete(e.pointerId);
+
+  try {
+    canvas.releasePointerCapture?.(e.pointerId);
+  } catch {
+    /*
+    ignore
+    */
+  }
+
+  if (hadPinch) {
+    if (activePointers.size < 2) {
+      pinch = null;
+      resumeLookFromRemainingFinger();
+    }
+    return;
+  }
+
+  if (!lookDrag || e.pointerId !== lookDrag.id) return;
+  const wasTap = !lookDrag.moved;
+  const originX = lookDrag.x;
+  const originY = lookDrag.y;
+  const startYaw = lookDrag.startYaw;
+  const startPitch = lookDrag.startPitch;
+  lookDrag = null;
+  if (!isLive || isExamining || isAboutOpen) return;
+  if (wasTap) {
+    lookYaw = startYaw;
+    lookPitch = startPitch;
+    applyCameraLook();
+    updatePointer(originX, originY);
+  } else if (e.type !== "pointercancel") {
+    updatePointer(e.clientX, e.clientY);
+    stickGrabToPointer();
+  }
+  aimFlashlight();
+  updateHover();
+  if (wasTap && nearest) openExamine(nearest);
+}
+
 if (isTouch) {
   centerAim();
 
-  window.addEventListener("pointerdown", (e) => {
-    if (!isLive || isExamining || isAboutOpen || !e.isPrimary || isUiTarget(e.target)) return;
-    isTouchPromptReady = true;
-    updatePointer(e.clientX, e.clientY);
-    grabPointFromPointer();
-    isAimReady = false;
-    aimFlashlight();
-    updateHover();
-    touchDrag = {
-      id: e.pointerId,
-      x: e.clientX,
-      y: e.clientY,
-      startYaw: lookYaw,
-      startPitch: lookPitch,
-      moved: false,
-    };
-    try {
-      canvas.setPointerCapture?.(e.pointerId);
-    } catch {
-      /*
-      ignore
-      */
-    }
-  });
-
+  window.addEventListener("pointerdown", beginLookDrag);
   window.addEventListener(
     "pointermove",
     (e) => {
-      if (isExamining || isAboutOpen || !touchDrag || !e.isPrimary || e.pointerId !== touchDrag.id) {
-        return;
-      }
-      if (e.cancelable) e.preventDefault();
-      updatePointer(e.clientX, e.clientY);
-      const dx = e.clientX - touchDrag.x;
-      const dy = e.clientY - touchDrag.y;
-      if (Math.hypot(dx, dy) > TAP_PX) touchDrag.moved = true;
-      stickGrabToPointer();
-      aimFlashlight();
-      updateHover();
+      moveLookDrag(e);
     },
     { passive: false }
   );
+  window.addEventListener("pointerup", endLookDrag);
+  window.addEventListener("pointercancel", endLookDrag);
 
-  function endTouchDrag(e) {
-    if (!touchDrag || e.pointerId !== touchDrag.id) return;
-    const wasTap = !touchDrag.moved;
-    const originX = touchDrag.x;
-    const originY = touchDrag.y;
-    const startYaw = touchDrag.startYaw;
-    const startPitch = touchDrag.startPitch;
-    touchDrag = null;
-    try {
-      canvas.releasePointerCapture?.(e.pointerId);
-    } catch {
-      /*
-      ignore
-      */
-    }
-    if (!isLive || isExamining || isAboutOpen) return;
-    if (wasTap) {
-      lookYaw = startYaw;
-      lookPitch = startPitch;
-      applyCameraLook();
-      updatePointer(originX, originY);
-    } else if (e.type !== "pointercancel") {
-      updatePointer(e.clientX, e.clientY);
-      stickGrabToPointer();
-    }
-    aimFlashlight();
-    updateHover();
-    if (wasTap && nearest) openExamine(nearest);
-  }
-
-  window.addEventListener("pointerup", endTouchDrag);
-  window.addEventListener("pointercancel", endTouchDrag);
+  // Keep Safari from stealing the pinch for page zoom.
+  window.addEventListener(
+    "gesturestart",
+    (e) => {
+      if (isLive && !isExamining && !isAboutOpen) e.preventDefault();
+    },
+    { passive: false }
+  );
 } else {
+  window.addEventListener("pointerdown", beginLookDrag);
+
   window.addEventListener("pointermove", (e) => {
+    if (moveLookDrag(e)) return;
     // Keep tracking while a panel is open so the crosshair returns
     // under the cursor, not the click that opened the panel.
     updatePointer(e.clientX, e.clientY);
   });
 
-  window.addEventListener("click", (e) => {
-    if (!isLive || isExamining || isAboutOpen || isUiTarget(e.target)) return;
-    updatePointer(e.clientX, e.clientY);
-    aimFlashlight();
-    updateHover();
-    if (nearest) openExamine(nearest);
-  });
+  window.addEventListener("pointerup", endLookDrag);
+  window.addEventListener("pointercancel", endLookDrag);
+
+  // Two-finger scroll pans look; trackpad pinch (ctrl+wheel) zooms.
+  window.addEventListener(
+    "wheel",
+    (e) => {
+      if (!isLive || isExamining || isAboutOpen || isUiTarget(e.target)) return;
+      if (e.cancelable) e.preventDefault();
+      if (e.ctrlKey) {
+        zoom *= Math.exp(e.deltaY * WHEEL_ZOOM_SCALE);
+        applyCameraFov();
+        return;
+      }
+      lookYaw -= e.deltaX * WHEEL_LOOK_SCALE;
+      lookPitch -= e.deltaY * WHEEL_LOOK_SCALE;
+      applyCameraLook();
+      aimFlashlight();
+      updateHover();
+    },
+    { passive: false }
+  );
 }
 
 window.addEventListener("keydown", (e) => {
@@ -955,11 +1092,10 @@ window.addEventListener("keydown", (e) => {
 function handleResize() {
   const { w, h } = viewSize();
   camera.aspect = w / h;
-  camera.fov = baseFov();
-  camera.updateProjectionMatrix();
+  applyCameraFov();
   renderer.setSize(w, h);
   examinePreview.resize();
-  if (!isTouch || !isLive || isExamining || isAboutOpen || touchDrag) return;
+  if (!isTouch || !isLive || isExamining || isAboutOpen || lookDrag || pinch) return;
   const box = canvasBox();
   updatePointer(
     box.left + ((pointer.x + 1) * 0.5) * box.w,

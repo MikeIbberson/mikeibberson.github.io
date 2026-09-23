@@ -35,7 +35,9 @@ ticker:
     A cold room. Dust hangs in the air. Something here knows who you are
     looking for.
   introTouch: >
-    Drag to look around the room. Tap an object to open its file.
+    Drag to look around. Pinch to zoom. Tap an object to open its file.
+  introDesktop: >
+    Drag or two-finger scroll to look, pinch to zoom. Click an object to open its file.
   idle: A cold room. Dust hangs in the air.
   primaryComplete: >
     Computer, bookshelf, and the Textlayer frame are the short path.
