@@ -109,45 +109,6 @@ function applyContent() {
       el.rel = "noopener noreferrer";
     }
   });
-
-  const creditsHost = document.getElementById("about-credits");
-  const creditsList = document.getElementById("about-credits-list");
-  const creditEntries = c.about?.credits?.entries ?? [];
-  if (creditsHost && creditsList) {
-    if (!creditEntries.length) {
-      creditsHost.hidden = true;
-      creditsList.replaceChildren();
-    } else {
-      creditsHost.hidden = false;
-      creditsList.replaceChildren(
-        ...creditEntries.map((entry) => {
-          const li = document.createElement("li");
-          li.className = "about__credits-item";
-          if (entry.for) {
-            const used = document.createElement("span");
-            used.className = "about__credits-for";
-            used.textContent = entry.for;
-            li.append(used);
-            li.append(document.createTextNode(" — "));
-          }
-          if (entry.href) {
-            const a = document.createElement("a");
-            a.className = "about__credits-link";
-            a.href = entry.href;
-            a.target = "_blank";
-            a.rel = "noopener noreferrer";
-            a.textContent = entry.label ?? entry.href;
-            li.append(a);
-          } else {
-            const span = document.createElement("span");
-            span.textContent = entry.label ?? "";
-            li.append(span);
-          }
-          return li;
-        })
-      );
-    }
-  }
 }
 
 applyContent();

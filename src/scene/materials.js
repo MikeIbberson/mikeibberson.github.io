@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { content } from "../data/content.js";
 import { publicUrl } from "../publicUrl.js";
 
 export function woodMaterial(hex = 0x5a4030, roughness = 0.85, metalness = 0.05) {
@@ -90,41 +89,6 @@ export function makeWallpaperTexture() {
   return tex;
 }
 
-export function makeCalendarTexture() {
-  const c = document.createElement("canvas");
-  c.width = 256;
-  c.height = 320;
-  const ctx = c.getContext("2d");
-  ctx.fillStyle = "#e8dcc0";
-  ctx.fillRect(0, 0, 256, 320);
-
-  const now = new Date();
-  const month = now
-    .toLocaleString("en-US", { month: "long" })
-    .toUpperCase();
-  const day = String(now.getDate());
-  const cal = content.calendarTexture ?? {};
-
-  ctx.fillStyle = "#222";
-  ctx.font = "bold 28px monospace";
-  ctx.textAlign = "center";
-  ctx.fillText(month, 128, 48);
-  ctx.fillStyle = "#8b1e1e";
-  ctx.font = "bold 120px Georgia";
-  ctx.fillText(day, 128, 180);
-  ctx.strokeStyle = "#8b1e1e";
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.arc(128, 150, 70, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.fillStyle = "#2a4a2a";
-  ctx.font = "16px monospace";
-  ctx.fillText(cal.cta ?? "GET IN TOUCH →", 128, 260);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
 /** Cover-crop + faded silver-gelatin grade so the portrait sits in the dark room. */
 function vintagePortraitTexture(image, targetAspect) {
   const srcW = image.width || 1;
@@ -182,6 +146,37 @@ function vintagePortraitTexture(image, targetAspect) {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
   return tex;
+}
+
+export function loadLogoTexture() {
+  const loader = new THREE.TextureLoader();
+  return new Promise((resolve) => {
+    loader.load(
+      publicUrl("/images/textlayer-logo.jpg"),
+      (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = 8;
+        tex.magFilter = THREE.LinearFilter;
+        resolve(tex);
+      },
+      undefined,
+      () => {
+        const c = document.createElement("canvas");
+        c.width = 256;
+        c.height = 256;
+        const ctx = c.getContext("2d");
+        ctx.fillStyle = "#111";
+        ctx.fillRect(0, 0, 256, 256);
+        ctx.fillStyle = "#eee";
+        ctx.font = "bold 28px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("TEXTLAYER", 128, 136);
+        const fallback = new THREE.CanvasTexture(c);
+        fallback.colorSpace = THREE.SRGBColorSpace;
+        resolve(fallback);
+      }
+    );
+  });
 }
 
 export function loadPortraitTexture() {

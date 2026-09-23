@@ -3,7 +3,7 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import {
   woodMaterial,
   paintMaterial,
-  makeCalendarTexture,
+  loadLogoTexture,
   loadPortraitTexture,
 } from "./materials.js";
 import { ITEMS } from "../data/content.js";
@@ -219,25 +219,26 @@ async function mug() {
   return markInteractable(g, "mug", itemLabel("mug", "Coffee mug"));
 }
 
-function calendar() {
+async function textlayerFrame() {
   const g = new THREE.Group();
-  const paper = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.55, 0.7),
+  const frameMat = woodMaterial(0x3a2a1c, 0.65);
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.78, 0.06), frameMat);
+  g.add(frame);
+  const tex = await loadLogoTexture();
+  const mark = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.62, 0.62),
     new THREE.MeshStandardMaterial({
-      map: makeCalendarTexture(),
-      roughness: 0.9,
+      map: tex,
+      roughness: 0.72,
+      metalness: 0.08,
+      color: 0xf4f4f4,
     })
   );
-  g.add(paper);
-  const bind = new THREE.Mesh(
-    new THREE.BoxGeometry(0.55, 0.05, 0.04),
-    paintMaterial(0x222222, 0.5)
-  );
-  bind.position.set(0, 0.36, 0.01);
-  g.add(bind);
-  // Plane already faces +Z (camera)
-  g.position.set(0.9, 3.1, -4.92);
-  return markInteractable(g, "calendar", itemLabel("calendar", "Calendar"));
+  mark.position.z = 0.035;
+  g.add(mark);
+  // Right of the portrait, where the calendar hung
+  g.position.set(1.05, 3.2, -4.92);
+  return markInteractable(g, "textlayer", itemLabel("textlayer", "Textlayer"));
 }
 
 async function photo() {
@@ -279,8 +280,26 @@ function passport() {
   seal.rotation.x = -Math.PI / 2;
   seal.position.y = 0.012;
   g.add(seal);
-  g.position.set(0.15, 1.02, -3.25);
-  return markInteractable(g, "passport", itemLabel("passport", "Travel folder"));
+  // Flat cover is only a few pixels tall from the camera, so a larger
+  // invisible volume catches clicks aimed at the folder.
+  const hit = new THREE.Mesh(
+    new THREE.BoxGeometry(0.42, 0.28, 0.5),
+    new THREE.MeshBasicMaterial({
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+    })
+  );
+  hit.position.y = 0.12;
+  hit.castShadow = false;
+  hit.receiveShadow = false;
+  g.add(hit);
+  // Right side of the desk, clear of the computer and the runner
+  g.position.set(1.14, 1.02, -3.16);
+  const folder = markInteractable(g, "passport", itemLabel("passport", "Travel folder"));
+  hit.castShadow = false;
+  hit.receiveShadow = false;
+  return folder;
 }
 
 async function chair() {
@@ -321,7 +340,7 @@ export async function createProps() {
     runner(),
     mug(),
     dog(),
-    Promise.resolve(calendar()),
+    textlayerFrame(),
     Promise.resolve(passport()),
     photo(),
   ]);
