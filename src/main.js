@@ -773,7 +773,9 @@ function openExamine(root) {
 
   // Body before preview — preview errors must not skip the copy
   typeText(examineBody, body, () => {
-    if (primaryIds.isSubsetOf(found)) {
+    if (found.size >= propRoots.length) {
+      setTicker(copy.ticker.complete.trim());
+    } else if (primaryIds.isSubsetOf(found)) {
       setTicker(copy.ticker.primaryComplete.trim());
     }
   });
