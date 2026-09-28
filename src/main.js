@@ -29,6 +29,69 @@ function pathGet(obj, path) {
   return acc;
 }
 
+function applyBootLines(c) {
+  const bootLinesHost = document.querySelector("#boot-lines");
+  if (!bootLinesHost || !Array.isArray(c.boot?.lines)) return;
+  bootLinesHost.replaceChildren(
+    ...c.boot.lines.map((line, i, arr) => {
+      const p = document.createElement("p");
+      p.className = `boot__line${  i === arr.length - 1 ? " boot__line--ok" : ""}`;
+      p.dataset.boot = "";
+      p.textContent = asText(line);
+      return p;
+    })
+  );
+}
+
+function setAriaLabel(selector, label) {
+  const el = document.querySelector(selector);
+  if (el && label) el.setAttribute("aria-label", label);
+}
+
+function applyAboutRole(c) {
+  const aboutRole = document.querySelector("#about-role");
+  if (!aboutRole || !c.site) return;
+  const nodes = [document.createTextNode(`${c.site.role} `)];
+  if (c.site.company) {
+    const a = document.createElement("a");
+    a.href = c.site.company.href;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.textContent = c.site.company.name;
+    nodes.push(a);
+  }
+  nodes.push(document.createTextNode(` · ${c.site.location}`));
+  aboutRole.replaceChildren(...nodes);
+}
+
+function applySocialLink(el, social) {
+  if (!social) {
+    el.hidden = true;
+    return;
+  }
+  el.hidden = false;
+  el.href = social.href;
+  el.setAttribute("aria-label", social.label);
+  const label = el.querySelector("span");
+  if (label) label.textContent = social.label;
+  if (String(social.href).startsWith("mailto:")) {
+    el.removeAttribute("target");
+    el.removeAttribute("rel");
+  } else {
+    el.target = "_blank";
+    el.rel = "noopener noreferrer";
+  }
+}
+
+function applySocials(c) {
+  const socialById = Object.fromEntries(
+    (c.about?.socials ?? []).map((s) => [s.id, s])
+  );
+  for (const el of document.querySelectorAll("[data-social]")) {
+    applySocialLink(el, socialById[el.dataset.social]);
+  }
+}
+
 function applyContent() {
   const c = content;
   if (c.meta?.title) document.title = c.meta.title;
@@ -39,81 +102,19 @@ function applyContent() {
     el.textContent = asText(value);
   }
 
-  const bootLinesHost = document.querySelector("#boot-lines");
-  if (bootLinesHost && Array.isArray(c.boot?.lines)) {
-    bootLinesHost.replaceChildren(
-      ...c.boot.lines.map((line, i, arr) => {
-        const p = document.createElement("p");
-        p.className = `boot__line${  i === arr.length - 1 ? " boot__line--ok" : ""}`;
-        p.dataset.boot = "";
-        p.textContent = asText(line);
-        return p;
-      })
-    );
-  }
-
-  const brandLinkEl = document.querySelector("#brand-link");
-  if (brandLinkEl && c.hud?.brandAriaLabel) {
-    brandLinkEl.setAttribute("aria-label", c.hud.brandAriaLabel);
-  }
-
-  const menuToggleEl = document.querySelector("#menu-toggle");
-  if (menuToggleEl && c.hud?.menuOpen) {
-    menuToggleEl.setAttribute("aria-label", c.hud.menuOpen);
-  }
+  applyBootLines(c);
+  setAriaLabel("#brand-link", c.hud?.brandAriaLabel);
+  setAriaLabel("#menu-toggle", c.hud?.menuOpen);
 
   const hudCompany = document.querySelector("#hud-company");
   if (hudCompany && c.site?.company?.href) {
     hudCompany.href = c.site.company.href;
   }
 
-  const aboutRole = document.querySelector("#about-role");
-  if (aboutRole && c.site) {
-    const nodes = [document.createTextNode(`${c.site.role} `)];
-    if (c.site.company) {
-      const a = document.createElement("a");
-      a.href = c.site.company.href;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      a.textContent = c.site.company.name;
-      nodes.push(a);
-    }
-    nodes.push(document.createTextNode(` · ${c.site.location}`));
-    aboutRole.replaceChildren(...nodes);
-  }
-
-  const aboutClose = document.querySelector(".about__close");
-  if (aboutClose && c.about?.close) {
-    aboutClose.setAttribute("aria-label", c.about.close);
-  }
-
-  const socialsNav = document.querySelector("#about-socials");
-  if (socialsNav && c.about?.socialsAriaLabel) {
-    socialsNav.setAttribute("aria-label", c.about.socialsAriaLabel);
-  }
-
-  const socialById = Object.fromEntries(
-    (c.about?.socials ?? []).map((s) => [s.id, s])
-  );
-  for (const el of document.querySelectorAll("[data-social]")) {
-    const social = socialById[el.dataset.social];
-    if (!social) {
-      el.hidden = true;
-      continue;
-    }
-    el.hidden = false;
-    el.href = social.href;
-    el.setAttribute("aria-label", social.label);
-    const label = el.querySelector("span");
-    if (label) label.textContent = social.label;
-    if (String(social.href).startsWith("mailto:")) {
-      el.removeAttribute("target");
-      el.removeAttribute("rel");
-    } else {
-      el.target = "_blank";
-      el.rel = "noopener noreferrer";
-    }
-  }
+  applyAboutRole(c);
+  setAriaLabel(".about__close", c.about?.close);
+  setAriaLabel("#about-socials", c.about?.socialsAriaLabel);
+  applySocials(c);
 }
 
 applyContent();
@@ -903,7 +904,7 @@ function beginLookDrag(e) {
 
 function pointerDistance() {
   if (activePointers.size < 2) return 0;
-  const pts = [...activePointers.values()];
+  const pts = activePointers.values().toArray();
   return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
 }
 
@@ -947,7 +948,7 @@ function moveLookDrag(e) {
   activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
   if (pinch || activePointers.size >= 2) {
-    if (activePointers.size >= 2 && !pinch) beginPinch();
+    if (!pinch && activePointers.size >= 2) beginPinch();
     if (e.cancelable) e.preventDefault();
     movePinch();
     return true;
@@ -968,7 +969,7 @@ function moveLookDrag(e) {
 }
 
 function endLookDrag(e) {
-  const hadPinch = !!pinch;
+  const wasPinching = !!pinch;
   activePointers.delete(e.pointerId);
 
   try {
@@ -979,7 +980,7 @@ function endLookDrag(e) {
     */
   }
 
-  if (hadPinch) {
+  if (wasPinching) {
     if (activePointers.size < 2) {
       pinch = null;
       resumeLookFromRemainingFinger();
@@ -1151,50 +1152,61 @@ function updateDust(dt) {
   dust.geometry.attributes.position.needsUpdate = true;
 }
 
+function updateEnterBlend(dt) {
+  if (!isLive || enterBlend >= 1) return;
+  enterBlend = reduceMotion ? 1 : Math.min(1, enterBlend + dt * 0.55);
+  flashFill.intensity = 1.15 * enterBlend;
+  if (isExamining || isAboutOpen) {
+    flashlight.intensity = 8.4 * enterBlend;
+  }
+}
+
+function updateCameraIdle() {
+  if (isTouch) return;
+  // Subtle idle breathe on desktop
+  if (isLive && !isExamining && !isAboutOpen && !reduceMotion) {
+    const breathe = Math.sin(t * 0.55) * CAM_BREATHE;
+    camera.position.y = CAM_HOME.y + breathe;
+    camera.position.x = CAM_HOME.x + Math.sin(t * 0.27) * CAM_BREATHE * 0.45;
+  } else {
+    camera.position.copy(CAM_HOME);
+  }
+}
+
+function updateAmbient(dt) {
+  if (reduceMotion) return;
+  if (!lowPower) {
+    updateStormLight();
+    updateDust(dt);
+  } else if (Math.trunc(t * 60) % 2 === 0) {
+    updateStormLight();
+  }
+}
+
+function flickerFlashlight() {
+  if (reduceMotion || enterBlend <= 0.85) return;
+  const jitter = lowPower ? 0.04 : 0.08;
+  flashlight.intensity += (Math.random() - 0.5) * jitter;
+  flashlight.intensity = THREE.MathUtils.clamp(
+    flashlight.intensity,
+    nearest ? 8.6 : 7.8,
+    nearest ? 9.8 : 9
+  );
+}
+
 function animate() {
   requestAnimationFrame(animate);
   const dt = 0.016;
   t += dt;
 
-  if (isLive && enterBlend < 1) {
-    enterBlend = reduceMotion ? 1 : Math.min(1, enterBlend + dt * 0.55);
-    flashFill.intensity = 1.15 * enterBlend;
-    if (isExamining || isAboutOpen) {
-      flashlight.intensity = 8.4 * enterBlend;
-    }
-  }
-
-  // Subtle idle breathe on desktop
-  if (!isTouch && isLive && !isExamining && !isAboutOpen && !reduceMotion) {
-    const breathe = Math.sin(t * 0.55) * CAM_BREATHE;
-    camera.position.y = CAM_HOME.y + breathe;
-    camera.position.x = CAM_HOME.x + Math.sin(t * 0.27) * CAM_BREATHE * 0.45;
-  } else if (!isTouch) {
-    camera.position.copy(CAM_HOME);
-  }
-
-  if (!reduceMotion) {
-    if (lowPower) {
-      if (Math.trunc(t * 60) % 2 === 0) updateStormLight();
-    } else {
-      updateStormLight();
-      updateDust(dt);
-    }
-  }
+  updateEnterBlend(dt);
+  updateCameraIdle();
+  updateAmbient(dt);
 
   if (isLive && !isExamining && !isAboutOpen) {
     aimFlashlight();
     updateHover();
-    // subtle flicker
-    if (!reduceMotion && enterBlend > 0.85) {
-      const jitter = lowPower ? 0.04 : 0.08;
-      flashlight.intensity += (Math.random() - 0.5) * jitter;
-      flashlight.intensity = THREE.MathUtils.clamp(
-        flashlight.intensity,
-        nearest ? 8.6 : 7.8,
-        nearest ? 9.8 : 9
-      );
-    }
+    flickerFlashlight();
   }
 
   renderer.render(scene, camera);
