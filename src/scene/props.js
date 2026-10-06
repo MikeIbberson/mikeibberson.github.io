@@ -105,16 +105,50 @@ async function loadPlaced(url, targetSize, opts) {
   return placeModel(model, targetSize, opts);
 }
 
+// Loads a GLB into group `g`; on failure warns and runs the optional fallback.
+// Resolves to the placed model, or null when loading failed.
+async function addPlacedModel(g, path, targetSize, opts, name, onError) {
+  try {
+    const model = await loadPlaced(publicUrl(path), targetSize, opts);
+    g.add(model);
+    return model;
+  } catch (error) {
+    console.warn(`${name} GLB failed`, error);
+    onError?.();
+    return null;
+  }
+}
+
+function framedPicture(g, frameSize, pictureSize, tex) {
+  const frameMat = woodMaterial(0x3a2a1c, 0.65);
+  const [fw, fh] = frameSize;
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(fw, fh, 0.06), frameMat);
+  g.add(frame);
+  const [pw, ph] = pictureSize;
+  const pic = new THREE.Mesh(
+    new THREE.PlaneGeometry(pw, ph),
+    new THREE.MeshStandardMaterial({
+      map: tex,
+      roughness: 0.92,
+      metalness: 0.02,
+      color: 0xb9a88a,
+    })
+  );
+  pic.position.z = 0.035;
+  g.add(pic);
+}
+
 async function bookshelf() {
   const g = new THREE.Group();
-  try {
-    const model = await loadPlaced(publicUrl("/models/bookcase.glb"), 2.2, {
+  await addPlacedModel(
+    g,
+    "/models/bookcase.glb",
+    2.2,
+    {
       euler: [0, FACE.bookcase, 0],
-    });
-    g.add(model);
-  } catch (error) {
-    console.warn("Bookcase GLB failed", error);
-  }
+    },
+    "Bookcase"
+  );
   // On the back wall so shelves face into the room / camera
   g.position.set(-2.8, 0, -4.55);
   return markInteractable(g, "bookshelf", itemLabel("bookshelf", "Bookshelf"));
@@ -143,17 +177,20 @@ async function deskComputer() {
     g.add(leg);
   }
 
-  try {
-    // New CRT model is Y-up; yaw only so the screen faces the camera
-    const model = await loadPlaced(publicUrl("/models/computer.glb"), 0.75, {
+  // New CRT model is Y-up; yaw only so the screen faces the camera
+  const model = await addPlacedModel(
+    g,
+    "/models/computer.glb",
+    0.75,
+    {
       euler: [0, FACE.computer, 0],
       yOffset: 1,
-    });
+    },
+    "Computer"
+  );
+  if (model) {
     model.position.x -= 0.15;
     model.position.z += 0.02;
-    g.add(model);
-  } catch (error) {
-    console.warn("Computer GLB failed", error);
   }
 
   g.position.set(0.2, 0, -3.5);
@@ -162,64 +199,70 @@ async function deskComputer() {
 
 async function guitar() {
   const g = new THREE.Group();
-  try {
-    const model = await loadPlaced(publicUrl("/models/guitar.glb"), 1.35, {
+  await addPlacedModel(
+    g,
+    "/models/guitar.glb",
+    1.35,
+    {
       euler: [0, FACE.guitar, -0.1],
-    });
-    g.add(model);
-  } catch (error) {
-    console.warn("Guitar GLB failed", error);
-  }
+    },
+    "Guitar"
+  );
   g.position.set(3.7, 0, -3.7);
   return markInteractable(g, "guitar", itemLabel("guitar", "Guitar"));
 }
 
 async function runner() {
   const g = new THREE.Group();
-  try {
-    const model = await loadPlaced(publicUrl("/models/runner.glb"), 0.42, {
+  await addPlacedModel(
+    g,
+    "/models/runner.glb",
+    0.42,
+    {
       euler: [0, FACE.runner, 0],
       yOffset: 1,
-    });
-    g.add(model);
-  } catch (error) {
-    console.warn("Runner GLB failed", error);
-  }
+    },
+    "Runner"
+  );
   g.position.set(0.9, 0, -3.35);
   return markInteractable(g, "runner", itemLabel("runner", "Running statue"));
 }
 
 async function dog() {
   const g = new THREE.Group();
-  try {
-    const model = await loadPlaced(publicUrl("/models/dog.glb"), 0.65, {
+  await addPlacedModel(
+    g,
+    "/models/dog.glb",
+    0.65,
+    {
       euler: [0, FACE.dog, 0],
-    });
-    g.add(model);
-  } catch (error) {
-    console.warn("Dog GLB failed", error);
-  }
+    },
+    "Dog"
+  );
   g.position.set(1.6, 0, -2.2);
   return markInteractable(g, "dog", itemLabel("dog", "Robot dog"));
 }
 
 async function mug() {
   const g = new THREE.Group();
-  try {
-    const model = await loadPlaced(publicUrl("/models/mug.glb"), 0.28, {
+  await addPlacedModel(
+    g,
+    "/models/mug.glb",
+    0.28,
+    {
       euler: [0, FACE.mug, 0],
       yOffset: 1,
-    });
-    g.add(model);
-  } catch (error) {
-    console.warn("Mug GLB failed", error);
-    const fallback = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.07, 0.065, 0.14, 20),
-      paintMaterial(0xc4c4c4, 0.45)
-    );
-    fallback.position.y = 1.07;
-    g.add(fallback);
-  }
+    },
+    "Mug",
+    () => {
+      const fallback = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.07, 0.065, 0.14, 20),
+        paintMaterial(0xc4c4c4, 0.45)
+      );
+      fallback.position.y = 1.07;
+      g.add(fallback);
+    }
+  );
   // Left of the computer, inset from the desk’s front edge
   g.position.set(-0.7, 0, -3.4);
   return markInteractable(g, "mug", itemLabel("mug", "Coffee mug"));
@@ -227,21 +270,7 @@ async function mug() {
 
 async function textlayerFrame() {
   const g = new THREE.Group();
-  const frameMat = woodMaterial(0x3a2a1c, 0.65);
-  const frame = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.78, 0.06), frameMat);
-  g.add(frame);
-  const tex = await loadLogoTexture();
-  const mark = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.62, 0.62),
-    new THREE.MeshStandardMaterial({
-      map: tex,
-      roughness: 0.92,
-      metalness: 0.02,
-      color: 0xb9a88a,
-    })
-  );
-  mark.position.z = 0.035;
-  g.add(mark);
+  framedPicture(g, [0.78, 0.78], [0.62, 0.62], await loadLogoTexture());
   // Right of the portrait, where the calendar hung
   g.position.set(1.05, 3.2, -4.92);
   return markInteractable(g, "textlayer", itemLabel("textlayer", "Textlayer"));
@@ -249,21 +278,7 @@ async function textlayerFrame() {
 
 async function photo() {
   const g = new THREE.Group();
-  const frameMat = woodMaterial(0x3a2a1c, 0.65);
-  const frame = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.9, 0.06), frameMat);
-  g.add(frame);
-  const tex = await loadPortraitTexture();
-  const pic = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.58, 0.74),
-    new THREE.MeshStandardMaterial({
-      map: tex,
-      roughness: 0.92,
-      metalness: 0.02,
-      color: 0xb9a88a,
-    })
-  );
-  pic.position.z = 0.035;
-  g.add(pic);
+  framedPicture(g, [0.72, 0.9], [0.58, 0.74], await loadPortraitTexture());
   g.position.set(-0.5, 3.2, -4.92);
   return markInteractable(g, "photo", itemLabel("photo", "Photograph"));
 }
@@ -311,30 +326,32 @@ function passport() {
 
 async function chair() {
   const g = new THREE.Group();
-  try {
-    // Face the desk, yawed slightly inward toward the desk center
-    const model = await loadPlaced(publicUrl("/models/chair.glb"), 1.05, {
+  // Face the desk, yawed slightly inward toward the desk center
+  await addPlacedModel(
+    g,
+    "/models/chair.glb",
+    1.05,
+    {
       euler: [0, -0.28, 0],
-    });
-    g.add(model);
-  } catch (error) {
-    console.warn("Chair GLB failed", error);
-  }
+    },
+    "Chair"
+  );
   g.position.set(0.35, 0, -2.35);
   return g;
 }
 
 async function carpet() {
   const g = new THREE.Group();
-  try {
-    const model = await loadPlaced(publicUrl("/models/carpet.glb"), 3.6, {
+  await addPlacedModel(
+    g,
+    "/models/carpet.glb",
+    3.6,
+    {
       euler: [0, Math.PI / 8, 0],
       yOffset: 0.01,
-    });
-    g.add(model);
-  } catch (error) {
-    console.warn("Carpet GLB failed", error);
-  }
+    },
+    "Carpet"
+  );
   g.position.set(0.4, 0, -2);
   return g;
 }

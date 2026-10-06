@@ -43,7 +43,7 @@ ticker:
     Computer, bookshelf, and the Textlayer frame are the short path.
   progress: "{count} object{plural} examined. Keep searching."
   complete: >
-    Every object logged. The file on M. Ibberson is as complete as this room allows.
+    Every object found. You can stop searching — the file on M. Ibberson is as complete as this room allows.
 
 prompt:
   examine: "Examine {label}"

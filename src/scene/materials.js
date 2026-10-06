@@ -17,22 +17,6 @@ export function paintMaterial(hex, roughness = 0.9) {
   });
 }
 
-export function makeNoiseTexture(size = 128, base = [60, 45, 32], variance = 18) {
-  const data = new Uint8Array(size * size * 4);
-  for (let i = 0; i < size * size; i++) {
-    const n = (Math.random() - 0.5) * variance;
-    const o = i * 4;
-    data[o] = Math.max(0, Math.min(255, base[0] + n));
-    data[o + 1] = Math.max(0, Math.min(255, base[1] + n));
-    data[o + 2] = Math.max(0, Math.min(255, base[2] + n));
-    data[o + 3] = 255;
-  }
-  const tex = new THREE.DataTexture(data, size, size);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.needsUpdate = true;
-  return tex;
-}
-
 export function makePlankTexture() {
   const c = document.createElement("canvas");
   c.width = 512;
