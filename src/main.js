@@ -95,6 +95,17 @@ function applySocials(c) {
 function applyContent() {
   const c = content;
   if (c.meta?.title) document.title = c.meta.title;
+  if (c.meta?.description) {
+    const desc = asText(c.meta.description);
+    for (const sel of [
+      'meta[name="description"]',
+      'meta[property="og:description"]',
+      'meta[name="twitter:description"]',
+    ]) {
+      const el = document.querySelector(sel);
+      if (el) el.setAttribute("content", desc);
+    }
+  }
 
   for (const el of document.querySelectorAll("[data-content]")) {
     const value = pathGet(c, el.dataset.content);
