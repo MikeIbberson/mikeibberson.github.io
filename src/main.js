@@ -399,9 +399,14 @@ let nearest = null;
 let typeTimer = null;
 let typeGen = 0;
 let tickerTimer = null;
+/** Text `setTicker` is animating toward; avoids stale swaps overwriting newer copy. */
+let tickerPending = null;
 let enterBlend = 0;
+let examineGen = 0;
 const found = new Set();
 const primaryIds = new Set(PRIMARY_ITEMS);
+/** Examinable props only — ignore any root that has no dossier entry. */
+const discoveryTotal = propRoots.filter((p) => ITEMS[p.userData?.id]).length;
 const TAP_PX = 14;
 /** Active look-drag (touch or mouse). Null when not dragging. */
 let lookDrag = null;
@@ -419,19 +424,45 @@ const _grabPoint = new THREE.Vector3();
 const _projected = new THREE.Vector3();
 
 function setTicker(text = "") {
-  if (!ticker || ticker.textContent === text) return;
+  if (!ticker) return;
+  const next = String(text ?? "");
+  // Skip only if already showing/animating to this copy; pending must be
+  // checked or an older progress swap can overwrite the all-found message.
+  if (tickerPending === next || (tickerTimer == null && ticker.textContent === next)) {
+    return;
+  }
   if (reduceMotion) {
-    ticker.textContent = text;
+    if (tickerTimer) clearTimeout(tickerTimer);
+    tickerTimer = null;
+    tickerPending = null;
+    ticker.classList.remove("is-swap");
+    ticker.textContent = next;
     return;
   }
   if (tickerTimer) clearTimeout(tickerTimer);
+  tickerPending = next;
   ticker.classList.add("is-swap");
   tickerTimer = setTimeout(() => {
-    ticker.textContent = text;
+    ticker.textContent = next;
     ticker.classList.remove("is-swap");
     tickerTimer = null;
+    tickerPending = null;
   }, 160);
 }
+
+function discoveryStatusText() {
+  if (found.size === 0) {
+    return (isTouch ? copy.ticker.introTouch || copy.ticker.idle : copy.ticker.idle).trim();
+  }
+  if (discoveryTotal > 0 && found.size >= discoveryTotal) {
+    return copy.ticker.complete.trim();
+  }
+  return fmt(copy.ticker.progress, {
+    count: found.size,
+    plural: found.size > 1 ? "s" : "",
+  });
+}
+
 function setCompass(text) {
   if (compass) compass.textContent = text;
 }
@@ -761,6 +792,7 @@ function openExamine(root) {
   }
 
   isExamining = true;
+  const session = ++examineGen;
   document.body.classList.add("is-examining");
   prompt.hidden = true;
   showAim(false);
@@ -771,9 +803,15 @@ function openExamine(root) {
   examineTitle.textContent = title;
   setExamineLink(data.href, data.linkText);
 
+  // Record before typewriter so sync/reduced-motion callbacks see the new count
+  found.add(id);
+  setTicker(data.found);
+  setCompass(fmt(copy.hud.compassExamining, { title: title.toUpperCase() }));
+
   // Body before preview — preview errors must not skip the copy
   typeText(examineBody, body, () => {
-    if (found.size >= propRoots.length) {
+    if (!isExamining || session !== examineGen) return;
+    if (discoveryTotal > 0 && found.size >= discoveryTotal) {
       setTicker(copy.ticker.complete.trim());
     } else if (primaryIds.isSubsetOf(found)) {
       setTicker(copy.ticker.primaryComplete.trim());
@@ -788,16 +826,13 @@ function openExamine(root) {
     console.warn("Examine preview failed", error);
   }
 
-  found.add(id);
-  setTicker(data.found);
-  setCompass(fmt(copy.hud.compassExamining, { title: title.toUpperCase() }));
-
   examine.querySelector(".examine__close")?.focus();
 }
 
 function closeExamine() {
   if (!isExamining) return;
   isExamining = false;
+  examineGen += 1;
   document.body.classList.remove("is-examining");
   examine.hidden = true;
   examinePreview.stop();
@@ -811,18 +846,7 @@ function closeExamine() {
   if (examineTitle) examineTitle.textContent = "";
   setCompass(copy.hud.compassIdle);
   showAim(true);
-  if (found.size === 0) {
-    setTicker((isTouch ? copy.ticker.introTouch || copy.ticker.idle : copy.ticker.idle).trim());
-  } else if (found.size < propRoots.length) {
-    setTicker(
-      fmt(copy.ticker.progress, {
-        count: found.size,
-        plural: found.size > 1 ? "s" : "",
-      })
-    );
-  } else {
-    setTicker(copy.ticker.complete.trim());
-  }
+  setTicker(discoveryStatusText());
 }
 
 const examineCloseEls = examine?.querySelectorAll("[data-close]") ?? [];
